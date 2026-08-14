@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email HTML QA check</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div>
+      <div class="eyebrow">Tool for QA</div>
+      <h1>Email HTML QA check</h1>
+      <p class="subtitle">Indents email markup properly, keeps inline tags with their text, and checks the build against a set of email rules. Every finding carries the line number it sits on in the formatted output.</p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" id="formatBtn">Format &amp; check</button>
+    <button id="copyBtn">Copy output</button>
+    <button id="downloadBtn">Download .html</button>
+    <button id="copyReportBtn">Copy report</button>
+    <button id="openBtn">Open file</button>
+    <button id="clearBtn" class="danger">Clear</button>
+
+    <input type="file" id="fileInput" accept=".html,.htm,.txt" hidden>
+
+    <span class="seg">
+      Indent
+      <select id="indentSelect" aria-label="Indent size">
+        <option value="2">2 spaces</option>
+        <option value="4">4 spaces</option>
+        <option value="tab">Tab</option>
+      </select>
+    </span>
+
+    <span class="seg">
+      Theme
+      <select id="themeSelect" aria-label="Colour theme">
+        <option value="soft">Soft slate</option>
+        <option value="warm">Warm sand</option>
+        <option value="dark">Dark ink</option>
+      </select>
+    </span>
+  </div>
+
+  <div class="toggles" id="toggles">
+    <label class="check"><input type="checkbox" id="optAutofix" checked> Apply fixes</label>
+    <label class="check"><input type="checkbox" id="optTableAttrs" checked> Table attributes</label>
+    <label class="check"><input type="checkbox" id="optRequireBorder" checked> Require border="0"</label>
+    <label class="check"><input type="checkbox" id="optWidthSync" checked> Width attr &harr; style</label>
+    <label class="check"><input type="checkbox" id="optHeightSync"> Height attr &harr; style</label>
+    <label class="check"><input type="checkbox" id="optForceWidthFix"> Force px/% width fixes</label>
+    <label class="check"><input type="checkbox" id="optMediaSync" checked> Match @media blocks</label>
+    <label class="check"><input type="checkbox" id="optCrossMedia" checked> Compare across breakpoints</label>
+    <label class="check"><input type="checkbox" id="optDuplicateProps" checked> Duplicate properties</label>
+    <label class="check"><input type="checkbox" id="optEmptyAttrs" checked> Remove empty attributes</label>
+    <label class="check"><input type="checkbox" id="optUnusedClasses" checked> Remove unused classes</label>
+    <label class="check"><input type="checkbox" id="optBestPractice" checked> Email best practice</label>
+    <label class="check"><input type="checkbox" id="optExpandConditionals" checked> Expand Outlook conditionals</label>
+  </div>
+
+  <main class="workspace">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Input HTML</div>
+        <div class="meta" id="inputMeta">0 characters</div>
+      </div>
+      <textarea id="input" spellcheck="false" placeholder="Paste your email HTML here, or drop an .html file on this pane..."></textarea>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Formatted HTML</div>
+        <div class="meta" id="outputMeta">0 characters</div>
+      </div>
+      <pre id="output"></pre>
+    </section>
+  </main>
+
+  <section class="report">
+    <div class="report-head">
+      <div>
+        <div class="panel-title">Checks</div>
+        <div class="report-sub" id="reportSub">Run a format to see the results.</div>
+      </div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="report-tools">
+      <input type="search" class="search" id="reportSearch" placeholder="Filter findings by text, tag or class...">
+      <div class="filters" id="filters">
+        <button class="chip on" data-filter="all">All</button>
+        <button class="chip" data-filter="error">Errors</button>
+        <button class="chip" data-filter="warn">Review</button>
+        <button class="chip" data-filter="info">Notes</button>
+      </div>
+      <label class="check"><input type="checkbox" id="optShowDetails"> Show details</label>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-col">
+        <div class="col-head">
+          <span class="dot fix"></span>
+          <span>Fixed</span>
+          <span class="count" id="fixedCount">0</span>
+        </div>
+        <div class="report-body" id="reportFixed"></div>
+      </div>
+
+      <div class="report-col">
+        <div class="col-head">
+          <span class="dot warn"></span>
+          <span>Needs your attention</span>
+          <span class="count" id="openCount">0</span>
+        </div>
+        <div class="report-body" id="reportOpen"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="status" id="status">Ready.</div>
+    <div>Click any line chip to jump to that line. Outlook conditionals, VML and ghost tables are preserved.</div>
+  </div>
+</div>
+
+
+
+</body>
+</html>
