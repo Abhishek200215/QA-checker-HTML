@@ -1,0 +1,2935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email HTML QA check</title>
+<style>
+  :root{
+    /* Soft slate — default */
+    --canvas-1:#e8edf6;
+    --canvas-2:#dee6f2;
+    --wash-1:rgba(67,83,208,.13);
+    --wash-2:rgba(111,91,232,.11);
+    --wash-3:rgba(13,148,136,.08);
+    --paper:#f9fbfd;
+    --paper-blur:rgba(249,251,253,.93);
+    --wash:#eff4fa;
+    --line:#d7e0ec;
+    --line-soft:#e4ebf4;
+    --ink:#16203a;
+    --ink-2:#3b4964;
+    --muted:#6a7893;
+    --gutter:#9aa8c0;
+    --accent:#4353d0;
+    --accent-2:#6f5be8;
+    --accent-soft:#e8ebfd;
+    --accent-edge:#c3cafa;
+    --ok:#0e7a58;
+    --ok-soft:#e2f3ec;
+    --ok-edge:#bae0d0;
+    --warn:#96590a;
+    --warn-soft:#faf0dd;
+    --warn-edge:#ecd5a8;
+    --warn-dot:#c9821c;
+    --danger:#bd2942;
+    --danger-soft:#fbe9ed;
+    --danger-edge:#f0c3cd;
+    --shadow:0 1px 2px rgba(16,26,48,.05),0 14px 30px -20px rgba(16,26,48,.34);
+    --code:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+
+  html[data-theme="warm"]{
+    --canvas-1:#ece5d9;
+    --canvas-2:#e2d9cb;
+    --wash-1:rgba(192,95,18,.12);
+    --wash-2:rgba(224,135,31,.10);
+    --wash-3:rgba(120,113,80,.08);
+    --paper:#faf7f1;
+    --paper-blur:rgba(250,247,241,.93);
+    --wash:#f3ece1;
+    --line:#dcd0bd;
+    --line-soft:#e8dfd1;
+    --ink:#2a2016;
+    --ink-2:#4d3f30;
+    --muted:#7c6a56;
+    --gutter:#ab9c86;
+    --accent:#b25a10;
+    --accent-2:#d9861d;
+    --accent-soft:#f8ebd7;
+    --accent-edge:#e6cfa8;
+    --ok:#2c6b46;
+    --ok-soft:#e6f0e6;
+    --ok-edge:#c3d9c4;
+    --warn:#8d5507;
+    --warn-soft:#f8ecd8;
+    --warn-edge:#e7d1a4;
+    --warn-dot:#bf7a15;
+    --danger:#ad3527;
+    --danger-soft:#f9e6e2;
+    --danger-edge:#e9c4bc;
+    --shadow:0 1px 2px rgba(42,32,22,.06),0 14px 30px -20px rgba(42,32,22,.32);
+  }
+
+  html[data-theme="dark"]{
+    --canvas-1:#0f1626;
+    --canvas-2:#0a1019;
+    --wash-1:rgba(127,141,255,.16);
+    --wash-2:rgba(167,139,250,.13);
+    --wash-3:rgba(45,212,191,.08);
+    --paper:#151e30;
+    --paper-blur:rgba(21,30,48,.93);
+    --wash:#111a2a;
+    --line:#27344b;
+    --line-soft:#1f2b3e;
+    --ink:#e9eef8;
+    --ink-2:#bcc7d9;
+    --muted:#8695ac;
+    --gutter:#5a6884;
+    --accent:#8b98ff;
+    --accent-2:#b096fb;
+    --accent-soft:#1c2440;
+    --accent-edge:#33406b;
+    --ok:#3ad39d;
+    --ok-soft:#10281f;
+    --ok-edge:#1f4f3c;
+    --warn:#f0b355;
+    --warn-soft:#2a2110;
+    --warn-edge:#4d3a17;
+    --warn-dot:#e5a341;
+    --danger:#fb7185;
+    --danger-soft:#2b1419;
+    --danger-edge:#5a2632;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 18px 34px -22px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+
+  html,body{background:var(--canvas-2)}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(880px 520px at 6% -10%,var(--wash-1),transparent 58%),
+      radial-gradient(760px 460px at 100% 2%,var(--wash-2),transparent 56%),
+      radial-gradient(720px 520px at 80% 106%,var(--wash-3),transparent 58%),
+      linear-gradient(168deg,var(--canvas-1) 0%,var(--canvas-2) 100%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+    transition:background-color .25s ease;
+  }
+
+  .app{
+    width:min(1600px,94vw);
+    margin:0 auto;
+    padding:34px 0 40px;
+  }
+
+  .header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:20px;
+    margin-bottom:22px;
+  }
+
+  .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+
+  .eyebrow::before{
+    content:"";
+    width:22px;
+    height:2px;
+    border-radius:2px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  }
+
+  h1{
+    margin:10px 0 6px;
+    font-size:clamp(26px,3.4vw,36px);
+    line-height:1.08;
+    letter-spacing:-.028em;
+    font-weight:650;
+    background:linear-gradient(120deg,var(--ink) 18%,var(--accent) 74%,var(--accent-2) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .subtitle{
+    margin:0;
+    max-width:70ch;
+    color:var(--ink-2);
+    font-size:14px;
+    line-height:1.55;
+  }
+
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:9px;
+  }
+
+  button,select{
+    height:40px;
+    padding:0 15px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    font-weight:550;
+    cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,transform .12s,background .15s;
+  }
+
+  button:hover,select:hover{border-color:var(--accent-edge)}
+  button:active{transform:translateY(1px)}
+
+  button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+
+  button.primary{
+    border-color:transparent;
+    color:#ffffff;
+    background:linear-gradient(120deg,var(--accent),var(--accent-2));
+    box-shadow:0 1px 2px rgba(0,0,0,.12),0 10px 22px -14px var(--accent);
+  }
+
+  button.primary:hover{filter:saturate(1.06) brightness(1.03)}
+
+  button.danger{color:var(--danger)}
+  button.danger:hover{border-color:var(--danger-edge);background:var(--danger-soft)}
+
+  select{padding-right:10px}
+
+  .seg{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:40px;
+    padding:0 12px 0 13px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--paper);
+    color:var(--muted);
+    font-size:12px;
+  }
+
+  .seg select{
+    height:28px;
+    padding:0 4px 0 6px;
+    border:0;
+    background:transparent;
+    color:var(--ink);
+    font-size:12.5px;
+    font-weight:550;
+  }
+
+  .seg select:hover{box-shadow:none}
+
+  textarea.dropping{
+    outline:2px dashed var(--accent);
+    outline-offset:-6px;
+    background:var(--accent-soft);
+  }
+
+  .toggles{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:14px 0 20px;
+  }
+
+  .check{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    height:36px;
+    padding:0 11px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--paper);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:500;
+    cursor:pointer;
+    user-select:none;
+    transition:color .15s,border-color .15s,background .15s;
+  }
+
+  .check:hover{border-color:var(--accent-edge)}
+
+  .check.on{
+    color:var(--accent);
+    border-color:var(--accent-edge);
+    background:var(--accent-soft);
+  }
+
+  .check input{accent-color:var(--accent);margin:0}
+
+  .workspace{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+
+  .panel-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding:12px 15px;
+    border-bottom:1px solid var(--line-soft);
+    background:linear-gradient(180deg,var(--wash),var(--paper));
+  }
+
+  .panel-title{
+    font-size:12px;
+    font-weight:650;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink);
+  }
+
+  .meta{
+    font-size:11.5px;
+    color:var(--muted);
+    font-family:var(--code);
+  }
+
+  textarea,pre{
+    margin:0;
+    width:100%;
+    height:58vh;
+    min-height:420px;
+    padding:14px 16px;
+    border:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--code);
+    font-size:12.5px;
+    line-height:1.65;
+    overflow:auto;
+    tab-size:2;
+  }
+
+  textarea{resize:vertical;display:block}
+  textarea::placeholder{color:var(--gutter)}
+  pre{white-space:pre}
+
+  .code-line{
+    display:flex;
+    gap:14px;
+    border-radius:5px;
+    padding:0 2px;
+  }
+
+  .code-line .ln{
+    flex:none;
+    width:44px;
+    text-align:right;
+    color:var(--gutter);
+    user-select:none;
+    border-right:1px solid var(--line-soft);
+    padding-right:9px;
+  }
+
+  .code-line .src{white-space:pre;min-width:0}
+
+  .code-line.flash{
+    background:linear-gradient(90deg,var(--accent-soft),transparent 70%);
+    box-shadow:inset 2px 0 0 var(--accent);
+  }
+
+  .report{
+    margin-top:16px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+
+  .report-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    padding:14px 16px;
+    border-bottom:1px solid var(--line-soft);
+    background:
+      linear-gradient(90deg,var(--wash-1),transparent 62%),
+      var(--paper);
+  }
+
+  .report-sub{
+    margin-top:4px;
+    color:var(--muted);
+    font-size:12px;
+  }
+
+  .summary{display:flex;gap:7px;flex-wrap:wrap;font-size:12px}
+
+  .pill{
+    padding:4px 11px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--muted);
+    font-weight:550;
+  }
+
+  .pill.fix{color:var(--ok);border-color:var(--ok-edge);background:var(--ok-soft)}
+  .pill.warn{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-soft)}
+  .pill.error{color:var(--danger);border-color:var(--danger-edge);background:var(--danger-soft)}
+
+  .report-grid{display:grid;grid-template-columns:1fr 1fr}
+
+  .report-col{min-width:0}
+  .report-col + .report-col{border-left:1px solid var(--line-soft)}
+
+  .col-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:11px 16px;
+    background:var(--paper-blur);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line-soft);
+    font-size:11.5px;
+    font-weight:650;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  .report-col:first-child .col-head{color:var(--ok)}
+  .report-col:last-child .col-head{color:var(--warn)}
+
+  .col-head .count{
+    margin-left:auto;
+    color:var(--ink-2);
+    background:var(--wash);
+    border:1px solid var(--line-soft);
+    border-radius:999px;
+    padding:1px 9px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0;
+  }
+
+  .report-body{
+    max-height:46vh;
+    overflow:auto;
+    padding:2px 16px 16px;
+  }
+
+  .issue-group{padding:13px 0;border-bottom:1px solid var(--line-soft)}
+  .issue-group:last-child{border-bottom:0}
+
+  .group-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:9px;
+    font-size:10.5px;
+    font-weight:650;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .group-count{
+    color:var(--ink-2);
+    background:var(--wash);
+    border-radius:999px;
+    padding:1px 8px;
+    font-size:11px;
+    letter-spacing:0;
+  }
+
+  .issue{
+    display:flex;
+    gap:10px;
+    padding:6px 0;
+    font-size:13px;
+    line-height:1.5;
+    border-radius:7px;
+  }
+
+  .issue.hidden{display:none}
+
+  .issue > div{min-width:0;flex:1}
+
+  .dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    margin-top:8px;
+    flex:none;
+    background:var(--gutter);
+  }
+
+  .dot.fix{background:var(--ok)}
+  .dot.warn{background:var(--warn-dot)}
+  .dot.error{background:var(--danger)}
+
+  .times{
+    margin-left:7px;
+    color:var(--muted);
+    font-size:11px;
+    font-family:var(--code);
+  }
+
+  .lines{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    flex:0 0 auto;
+  }
+
+  .line-chip{
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--accent);
+    border-radius:6px;
+    padding:1px 7px;
+    font-family:var(--code);
+    font-size:11px;
+    cursor:pointer;
+    transition:background .14s,border-color .14s;
+  }
+
+  .line-chip:hover{background:var(--accent-soft);border-color:var(--accent-edge)}
+  .line-chip.more{color:var(--muted);cursor:default}
+  .line-chip.more:hover{background:var(--paper);border-color:var(--line)}
+
+  .detail{
+    margin-top:5px;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid var(--line-soft);
+    background:var(--wash);
+    color:var(--ink-2);
+    font-family:var(--code);
+    font-size:11.5px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+
+  .stats{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line-soft);
+    background:var(--wash);
+  }
+
+  .stat{
+    flex:0 0 auto;
+    min-width:92px;
+    padding:8px 12px;
+    border:1px solid var(--line-soft);
+    border-radius:10px;
+    background:var(--paper);
+  }
+
+  .stat .k{
+    display:block;
+    font-size:10px;
+    font-weight:650;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .stat .v{
+    display:block;
+    margin-top:3px;
+    font-size:17px;
+    font-weight:650;
+    letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .stat.good .v{color:var(--ok)}
+  .stat.flag .v{color:var(--warn)}
+  .stat.bad .v{color:var(--danger)}
+
+  .report-tools{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    padding:10px 16px;
+    border-bottom:1px solid var(--line-soft);
+  }
+
+  .search{
+    flex:1 1 220px;
+    min-width:180px;
+    height:34px;
+    padding:0 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+  }
+
+  .search::placeholder{color:var(--muted)}
+
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+
+  .chip{
+    height:30px;
+    padding:0 11px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:550;
+    cursor:pointer;
+  }
+
+  .chip:hover{border-color:var(--accent-edge)}
+
+  .chip.on{
+    color:var(--accent);
+    border-color:var(--accent-edge);
+    background:var(--accent-soft);
+  }
+
+  .issue-row{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .msg{flex:1 1 220px;min-width:0}
+
+  .detail-wrap{margin-top:5px}
+
+  .detail-wrap > summary{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    width:max-content;
+    color:var(--muted);
+    font-size:11.5px;
+    cursor:pointer;
+    list-style:none;
+    user-select:none;
+  }
+
+  .detail-wrap > summary::-webkit-details-marker{display:none}
+
+  .detail-wrap > summary::before{
+    content:"▸";
+    font-size:10px;
+    transition:transform .15s;
+  }
+
+  .detail-wrap[open] > summary::before{transform:rotate(90deg)}
+  .detail-wrap > summary:hover{color:var(--accent)}
+
+  .empty-state{
+    padding:20px 0;
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.55;
+  }
+
+  .footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-top:16px;
+    font-size:12px;
+    color:var(--muted);
+  }
+
+  .status{font-weight:550;color:var(--ink-2)}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--danger)}
+
+  @media(max-width:1000px){
+    .workspace{grid-template-columns:1fr}
+    textarea,pre{height:48vh;min-height:320px}
+    .report-grid{grid-template-columns:1fr}
+    .report-col + .report-col{border-left:0;border-top:1px solid var(--line-soft)}
+    .report-body{max-height:40vh}
+    .stats{padding:10px 12px}
+    .report-tools{padding:9px 12px}
+    .header{flex-direction:column;align-items:flex-start}
+  }
+
+  @media(max-width:620px){
+    .app{width:94vw;padding-top:24px}
+    .toolbar{width:100%}
+    button,select{flex:1 1 auto}
+    .code-line .ln{width:34px}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div>
+      <div class="eyebrow">Tool for QA</div>
+      <h1>Email HTML QA check</h1>
+      <p class="subtitle">Indents email markup properly, keeps inline tags with their text, and checks the build against a set of email rules. Every finding carries the line number it sits on in the formatted output.</p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" id="formatBtn">Format &amp; check</button>
+    <button id="copyBtn">Copy output</button>
+    <button id="downloadBtn">Download .html</button>
+    <button id="copyReportBtn">Copy report</button>
+    <button id="openBtn">Open file</button>
+    <button id="clearBtn" class="danger">Clear</button>
+
+    <input type="file" id="fileInput" accept=".html,.htm,.txt" hidden>
+
+    <span class="seg">
+      Indent
+      <select id="indentSelect" aria-label="Indent size">
+        <option value="2">2 spaces</option>
+        <option value="4">4 spaces</option>
+        <option value="tab">Tab</option>
+      </select>
+    </span>
+
+    <span class="seg">
+      Theme
+      <select id="themeSelect" aria-label="Colour theme">
+        <option value="soft">Soft slate</option>
+        <option value="warm">Warm sand</option>
+        <option value="dark">Dark ink</option>
+      </select>
+    </span>
+  </div>
+
+  <div class="toggles" id="toggles">
+    <label class="check"><input type="checkbox" id="optAutofix" checked> Apply fixes</label>
+    <label class="check"><input type="checkbox" id="optTableAttrs" checked> Table attributes</label>
+    <label class="check"><input type="checkbox" id="optRequireBorder" checked> Require border="0"</label>
+    <label class="check"><input type="checkbox" id="optWidthSync" checked> Width attr &harr; style</label>
+    <label class="check"><input type="checkbox" id="optHeightSync"> Height attr &harr; style</label>
+    <label class="check"><input type="checkbox" id="optForceWidthFix"> Force px/% width fixes</label>
+    <label class="check"><input type="checkbox" id="optMediaSync" checked> Match @media blocks</label>
+    <label class="check"><input type="checkbox" id="optCrossMedia" checked> Compare across breakpoints</label>
+    <label class="check"><input type="checkbox" id="optDuplicateProps" checked> Duplicate properties</label>
+    <label class="check"><input type="checkbox" id="optEmptyAttrs" checked> Remove empty attributes</label>
+    <label class="check"><input type="checkbox" id="optUnusedClasses" checked> Remove unused classes</label>
+    <label class="check"><input type="checkbox" id="optBestPractice" checked> Email best practice</label>
+    <label class="check"><input type="checkbox" id="optExpandConditionals" checked> Expand Outlook conditionals</label>
+  </div>
+
+  <main class="workspace">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Input HTML</div>
+        <div class="meta" id="inputMeta">0 characters</div>
+      </div>
+      <textarea id="input" spellcheck="false" placeholder="Paste your email HTML here, or drop an .html file on this pane..."></textarea>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Formatted HTML</div>
+        <div class="meta" id="outputMeta">0 characters</div>
+      </div>
+      <pre id="output"></pre>
+    </section>
+  </main>
+
+  <section class="report">
+    <div class="report-head">
+      <div>
+        <div class="panel-title">Checks</div>
+        <div class="report-sub" id="reportSub">Run a format to see the results.</div>
+      </div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="report-tools">
+      <input type="search" class="search" id="reportSearch" placeholder="Filter findings by text, tag or class...">
+      <div class="filters" id="filters">
+        <button class="chip on" data-filter="all">All</button>
+        <button class="chip" data-filter="error">Errors</button>
+        <button class="chip" data-filter="warn">Review</button>
+        <button class="chip" data-filter="info">Notes</button>
+      </div>
+      <label class="check"><input type="checkbox" id="optShowDetails"> Show details</label>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-col">
+        <div class="col-head">
+          <span class="dot fix"></span>
+          <span>Fixed</span>
+          <span class="count" id="fixedCount">0</span>
+        </div>
+        <div class="report-body" id="reportFixed"></div>
+      </div>
+
+      <div class="report-col">
+        <div class="col-head">
+          <span class="dot warn"></span>
+          <span>Needs your attention</span>
+          <span class="count" id="openCount">0</span>
+        </div>
+        <div class="report-body" id="reportOpen"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="status" id="status">Ready.</div>
+    <div>Click any line chip to jump to that line. Outlook conditionals, VML and ghost tables are preserved.</div>
+  </div>
+</div>
+
+<script>
+/* Email HTML Beautifier + Checker engine */
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.EmailTool = factory();
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  const VOID_TAGS = new Set([
+    "area","base","br","col","embed","hr","img","input","link",
+    "meta","param","source","track","wbr"
+  ]);
+
+  /* Inline elements never start a new output line. */
+  const INLINE_TAGS = new Set([
+    "a","abbr","b","bdi","bdo","big","br","cite","code","del","dfn","em","font",
+    "i","img","ins","kbd","mark","nobr","q","s","samp","small","span","strong",
+    "sub","sup","time","tt","u","var","wbr","o:p"
+  ]);
+
+  const RAW_TAGS = new Set(["style","script","pre","textarea"]);
+
+  /* ------------------------------------------------------------------ */
+  /* Tokenizer                                                           */
+  /* ------------------------------------------------------------------ */
+
+  function tokenize(src) {
+    const tokens = [];
+    let i = 0;
+    let line = 1;
+
+    const push = (type, value, extra) => {
+      tokens.push(Object.assign({ type: type, value: value, srcLine: line }, extra || {}));
+      for (let k = 0; k < value.length; k++) if (value[k] === "\n") line++;
+    };
+
+    while (i < src.length) {
+      if (src[i] !== "<") {
+        const next = src.indexOf("<", i);
+        const end = next === -1 ? src.length : next;
+        push("text", src.slice(i, end));
+        i = end;
+        continue;
+      }
+
+      const ahead = src.slice(i, i + 300);
+
+      /* <![endif]-->  /  <!--<![endif]-->  /  <!--[endif]--> */
+      const condClose =
+        /^<!--\s*<!\[endif\]\s*-->/i.exec(ahead) ||
+        /^<!--\s*\[endif\]\s*-->/i.exec(ahead) ||
+        /^<!\s*\[endif\]\s*-->/i.exec(ahead);
+
+      if (condClose) {
+        push("cond-close", condClose[0]);
+        i += condClose[0].length;
+        continue;
+      }
+
+      /* <!--[if mso]>  and downlevel-revealed  <!--[if !mso]><!--> */
+      const condOpen = /^<!--\s*\[if\b[^\]]*\]\s*>/i.exec(ahead);
+      if (condOpen) {
+        let raw = condOpen[0];
+        if (src.slice(i + raw.length).startsWith("<!-->")) raw += "<!-->";
+        push("cond-open", raw);
+        i += raw.length;
+        continue;
+      }
+
+      if (/^<!doctype/i.test(ahead)) {
+        const end = src.indexOf(">", i);
+        const finish = end === -1 ? src.length : end + 1;
+        push("doctype", src.slice(i, finish));
+        i = finish;
+        continue;
+      }
+
+      if (src.startsWith("<!--", i)) {
+        const end = src.indexOf("-->", i);
+        const finish = end === -1 ? src.length : end + 3;
+        push("comment", src.slice(i, finish));
+        i = finish;
+        continue;
+      }
+
+      /* A "<" that cannot start a tag is literal text. */
+      if (!/^<\/?[a-zA-Z!]/.test(ahead)) {
+        push("text", "<");
+        i++;
+        continue;
+      }
+
+      /* Real tag: walk to ">" while respecting quoted values. */
+      const start = i;
+      let quote = null;
+      let j = i + 1;
+
+      for (; j < src.length; j++) {
+        const ch = src[j];
+        if (quote) {
+          if (ch === quote) quote = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (ch === ">") { j++; break; }
+      }
+
+      const raw = src.slice(start, j);
+      i = j;
+
+      const closeMatch = /^<\s*\/\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+      if (closeMatch) {
+        push("close", raw, { name: closeMatch[1].toLowerCase() });
+        continue;
+      }
+
+      const openMatch = /^<\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+      if (!openMatch) {
+        push("text", raw);
+        continue;
+      }
+
+      const name = openMatch[1].toLowerCase();
+      const selfClosing = /\/\s*>$/.test(raw) || VOID_TAGS.has(name);
+      push(selfClosing ? "self" : "open", raw, { name });
+
+      /* Raw content blocks keep their body untouched by the tag walker. */
+      if (!selfClosing && RAW_TAGS.has(name)) {
+        const closeRe = new RegExp("<\\s*/\\s*" + name + "\\s*>", "i");
+        const remainder = src.slice(i);
+        const found = closeRe.exec(remainder);
+        const bodyEnd = found ? i + found.index : src.length;
+        push("raw", src.slice(i, bodyEnd), { name });
+        i = bodyEnd;
+      }
+    }
+
+    return tokens;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tag + attribute helpers                                             */
+  /* ------------------------------------------------------------------ */
+
+  function parseTag(raw) {
+    const m = /^<\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+    if (!m) return null;
+
+    let rest = raw.slice(m[0].length).replace(/>$/, "");
+    let selfClose = false;
+
+    if (/\/\s*$/.test(rest)) {
+      selfClose = true;
+      rest = rest.replace(/\/\s*$/, "");
+    }
+
+    const attrs = [];
+    const re = /([^\s=\/>"']+)(\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g;
+    let a;
+
+    while ((a = re.exec(rest)) !== null) {
+      if (!a[0].trim()) continue;
+
+      let value = null;
+      let quote = '"';
+
+      if (a[3] !== undefined) { value = a[3]; quote = '"'; }
+      else if (a[4] !== undefined) { value = a[4]; quote = "'"; }
+      else if (a[5] !== undefined) { value = a[5]; quote = ""; }
+
+      attrs.push({ name: a[1], value: value, quote: quote });
+    }
+
+    return { name: m[1], lower: m[1].toLowerCase(), attrs: attrs, selfClose: selfClose };
+  }
+
+  function serializeTag(tag) {
+    const parts = [tag.name];
+
+    for (const a of tag.attrs) {
+      if (a.value === null) parts.push(a.name);
+      else if (a.quote === "") parts.push(a.name + "=" + a.value);
+      else parts.push(a.name + "=" + a.quote + a.value + a.quote);
+    }
+
+    return "<" + parts.join(" ") + (tag.selfClose ? " />" : ">");
+  }
+
+  function getAttr(tag, name) {
+    const lower = name.toLowerCase();
+    return tag.attrs.find(a => a.name.toLowerCase() === lower) || null;
+  }
+
+  function setAttr(tag, name, value) {
+    const found = getAttr(tag, name);
+    if (found) { found.value = value; found.quote = found.quote || '"'; return found; }
+    const attr = { name: name, value: value, quote: '"' };
+    tag.attrs.push(attr);
+    return attr;
+  }
+
+  /* Attributes that must never be stripped when empty — removing them
+     changes behaviour, or an email client wrote them on purpose. */
+  const KEEP_EMPTY = new Set([
+    "alt","href","src","srcset","value","content","name","lang","id","action","for"
+  ]);
+
+  /* Classes injected by email clients themselves. They are never present
+     in the HTML, so "unused" is the wrong conclusion for them. */
+  const PROTECTED_CLASS = [
+    /^mso/i, /^ExternalClass/i, /^ReadMsgBody$/i, /^yshortcuts$/i, /^applelinks?$/i,
+    /^a3s$/i, /^a6S$/i, /^adL$/i, /^ii$/i, /^im$/i, /^gmail/i, /^m_-?\d/, /^x_/,
+    /^moz-/i, /^ios-/i, /^yiv\d/i, /^outlook/i, /^ymail/i, /^apple-/i, /^Singleton$/i
+  ];
+
+  function isProtectedClass(name) {
+    return PROTECTED_CLASS.some(re => re.test(name));
+  }
+
+  /* Structural attributes read better before a long style attribute. */
+  function insertAttrBeforeStyle(tag, name, value) {
+    const existing = getAttr(tag, name);
+    if (existing) { existing.value = value; existing.quote = existing.quote || '"'; return existing; }
+
+    const attr = { name: name, value: value, quote: '"' };
+    const styleIndex = tag.attrs.findIndex(a => a.name.toLowerCase() === "style");
+
+    if (styleIndex === -1) tag.attrs.push(attr);
+    else tag.attrs.splice(styleIndex, 0, attr);
+
+    return attr;
+  }
+
+  /* Split on a separator while ignoring quotes and parentheses. */
+  function safeSplit(text, sep) {
+    const out = [];
+    let buf = "";
+    let depth = 0;
+    let quote = null;
+
+    for (const ch of text) {
+      if (quote) { buf += ch; if (ch === quote) quote = null; continue; }
+      if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+      if (ch === "(") depth++;
+      if (ch === ")") depth = Math.max(0, depth - 1);
+      if (ch === sep && depth === 0) { out.push(buf); buf = ""; continue; }
+      buf += ch;
+    }
+
+    out.push(buf);
+    return out.map(s => s.trim()).filter(Boolean);
+  }
+
+  function parseStyleAttr(value) {
+    return safeSplit(value || "", ";").map(decl => {
+      const idx = decl.indexOf(":");
+      if (idx === -1) return { prop: decl.trim(), value: "", bare: true };
+      return {
+        prop: decl.slice(0, idx).trim(),
+        value: decl.slice(idx + 1).trim(),
+        bare: false
+      };
+    });
+  }
+
+  function serializeStyleAttr(list) {
+    if (!list.length) return "";
+    return list.map(d => (d.bare ? d.prop : d.prop + ":" + d.value)).join(";") + ";";
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* CSS parser (structure preserving enough for our checks)             */
+  /* ------------------------------------------------------------------ */
+
+  function parseCss(src) {
+    const nodes = [];
+    let i = 0;
+
+    while (i < src.length) {
+      while (i < src.length && /\s/.test(src[i])) i++;
+      if (i >= src.length) break;
+
+      if (src.startsWith("/*", i)) {
+        const end = src.indexOf("*/", i);
+        const finish = end === -1 ? src.length : end + 2;
+        nodes.push({ type: "comment", text: src.slice(i, finish) });
+        i = finish;
+        continue;
+      }
+
+      const open = src.indexOf("{", i);
+      const semi = src.indexOf(";", i);
+
+      if (open === -1 || (semi !== -1 && semi < open)) {
+        const end = semi === -1 ? src.length : semi;
+        const text = src.slice(i, end).trim();
+        if (text) nodes.push({ type: "statement", text: text });
+        i = end + 1;
+        continue;
+      }
+
+      const prelude = src.slice(i, open).trim();
+      let depth = 1;
+      let j = open + 1;
+      let quote = null;
+
+      for (; j < src.length; j++) {
+        const ch = src[j];
+        if (quote) { if (ch === quote && src[j - 1] !== "\\") quote = null; continue; }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") { depth--; if (depth === 0) break; }
+      }
+
+      const body = src.slice(open + 1, Math.min(j, src.length));
+
+      if (/^@/.test(prelude) && /\{/.test(body)) {
+        nodes.push({ type: "at", prelude: prelude, children: parseCss(body) });
+      } else {
+        nodes.push({ type: "rule", selector: prelude, decls: parseDecls(body) });
+      }
+
+      i = j + 1;
+    }
+
+    return nodes;
+  }
+
+  function parseDecls(body) {
+    return safeSplit(body, ";").map(decl => {
+      const idx = decl.indexOf(":");
+      if (idx === -1) return { prop: decl.trim(), value: "", bare: true };
+      return {
+        prop: decl.slice(0, idx).trim(),
+        value: decl.slice(idx + 1).trim().replace(/\s+/g, " "),
+        bare: false
+      };
+    }).filter(d => d.prop);
+  }
+
+  function declsText(decls) {
+    return decls.map(d => (d.bare ? d.prop : d.prop + ": " + d.value + ";")).join(" ");
+  }
+
+  function declsKey(decls) {
+    return decls
+      .map(d => (d.bare ? d.prop : d.prop.toLowerCase() + ":" + d.value.replace(/\s+/g, " ")))
+      .sort()
+      .join("|");
+  }
+
+  function serializeCssInto(nodes, level, indentUnit, out) {
+    const pad = indentUnit.repeat(level);
+
+    for (const node of nodes) {
+      node.outLine = out.length;
+
+      if (node.type === "comment") { out.push(pad + node.text); continue; }
+      if (node.type === "statement") { out.push(pad + node.text + ";"); continue; }
+
+      if (node.type === "at") {
+        out.push(pad + node.prelude + " {");
+        serializeCssInto(node.children, level + 1, indentUnit, out);
+        out.push(pad + "}");
+        continue;
+      }
+
+      const body = declsText(node.decls);
+      out.push(pad + node.selector + " {" + (body ? body + " " : "") + "}");
+    }
+
+    return out;
+  }
+
+  function collectSelectorClasses(selector) {
+    const found = [];
+    const re = /\.(-?[_a-zA-Z][\w-]*)/g;
+    let m;
+    while ((m = re.exec(selector)) !== null) found.push(m[1]);
+    return found;
+  }
+
+  /* Duplicate declarations in one block: the cascade keeps the last one,
+     unless an earlier one is marked !important. */
+  function dedupeDecls(list) {
+    const wins = new Map();
+
+    list.forEach((decl, index) => {
+      if (decl.bare) return;
+
+      const key = decl.prop.toLowerCase();
+      const important = /!important/i.test(decl.value);
+      const current = wins.get(key);
+
+      if (!current) { wins.set(key, { index: index, important: important }); return; }
+      if (current.important && !important) return;
+
+      wins.set(key, { index: index, important: important });
+    });
+
+    const dropped = [];
+    const kept = [];
+
+    list.forEach((decl, index) => {
+      if (decl.bare) { kept.push(decl); return; }
+
+      const win = wins.get(decl.prop.toLowerCase());
+      if (win.index === index) { kept.push(decl); return; }
+
+      dropped.push({ prop: decl.prop, value: decl.value, winner: list[win.index].value });
+    });
+
+    return { list: kept, dropped: dropped };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Checks and fixes                                                    */
+  /* ------------------------------------------------------------------ */
+
+  function normalizeLength(value) {
+    const v = String(value == null ? "" : value).trim().toLowerCase();
+    if (!v) return null;
+    if (/^\d+(\.\d+)?$/.test(v)) return v.replace(/\.0+$/, "") + "px";
+    if (/^\d+(\.\d+)?%$/.test(v)) return v.replace(/\.0+%/, "%");
+    if (/^\d+(\.\d+)?px$/.test(v)) return v.replace(/\.0+px/, "px");
+    return null;
+  }
+
+  function styleLength(decls, prop) {
+    for (let k = decls.length - 1; k >= 0; k--) {
+      if (decls[k].prop.toLowerCase() === prop) return decls[k];
+    }
+    return null;
+  }
+
+  function normalizeMedia(prelude) {
+    return prelude
+      .toLowerCase()
+      .replace(/\s*only\s+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\s*([(),:])\s*/g, "$1")
+      .trim();
+  }
+
+  /* Merge tags, anchors and non-http schemes are not broken links. */
+  function isRelativeUrl(value) {
+    const v = String(value == null ? "" : value).trim();
+    if (!v) return false;
+
+    if (/^(https?:)?\/\//i.test(v)) return false;
+    if (/^(mailto|tel|sms|data|cid|javascript|webcal|ftp):/i.test(v)) return false;
+    if (v.charAt(0) === "#") return false;
+
+    /* ESP placeholders: {{ }}, %% %%, *| |*, ${ }, [[ ]], <% %> */
+    if (/[{}%$\[\]<>|]/.test(v)) return false;
+
+    return true;
+  }
+
+  function shortCondition(prelude) {
+    return prelude
+      .replace(/^@media\s*/i, "")
+      .replace(/\bonly\s+/i, "")
+      .replace(/\bscreen\s+and\s+/i, "")
+      .replace(/\bscreen\b/i, "")
+      .replace(/\s+/g, " ")
+      .trim() || "@media";
+  }
+
+  function normalizeSelector(sel) {
+    return safeSplit(sel, ",").join(", ").replace(/\s+/g, " ").trim();
+  }
+
+  function process(source, options) {
+    const opts = Object.assign({
+      indent: "  ",
+      autofix: true,
+      tableAttrs: true,
+      requireBorder: true,
+      widthSync: true,
+      heightSync: false,
+      forceWidthFix: false,
+      mediaSync: true,
+      crossMedia: true,
+      emptyAttrs: true,
+      duplicateProps: true,
+      bestPractice: true,
+      expandConditionals: true,
+      unusedClasses: true
+    }, options || {});
+
+    const issues = [];
+
+    const stats = {
+      tags: 0,
+      tables: 0,
+      images: 0,
+      conditionals: 0,
+      mediaBlocks: 0,
+      breakpoints: 0,
+      links: {
+        total: 0,
+        linked: 0,
+        notLinked: 0,
+        mailto: 0,
+        tel: 0,
+        anchor: 0,
+        relative: 0,
+        mergeTag: 0,
+        missing: 0,
+        empty: 0,
+        placeholder: 0
+      }
+    };
+    const addIssue = (rule, level, message, detail, fixed, where) => {
+      issues.push({
+        rule: rule,
+        level: level,
+        message: message,
+        detail: detail || "",
+        fixed: !!fixed,
+        line: 0,
+        at: where || null
+      });
+    };
+
+    const src = String(source || "").replace(/\r\n?/g, "\n").trim();
+    if (!src) return { html: "", issues: issues };
+
+    const tokens = tokenize(src);
+
+    /* ---------- pass 1: tag level checks ---------- */
+    const usedClasses = new Map();   // class -> count
+    const classTokens = [];          // tokens carrying a class attribute
+    const missingTableAttrs = new Map();
+
+    for (const token of tokens) {
+      if (token.type !== "open" && token.type !== "self") continue;
+
+      const tag = parseTag(token.value);
+      if (!tag) continue;
+
+      let changed = false;
+      const label = token.value.slice(0, 70).replace(/\s+/g, " ");
+      const isNamespaced = /:/.test(tag.lower);
+
+      /* --- inventory --- */
+      stats.tags++;
+      if (tag.lower === "table") stats.tables++;
+      if (tag.lower === "img") stats.images++;
+
+      if (tag.lower === "a") {
+        const hrefAttr = getAttr(tag, "href");
+        const raw = hrefAttr && hrefAttr.value !== null ? hrefAttr.value.trim() : null;
+        const links = stats.links;
+
+        links.total++;
+
+        if (raw === null) { links.missing++; links.notLinked++; }
+        else if (raw === "") { links.empty++; links.notLinked++; }
+        else if (raw === "#") { links.placeholder++; links.notLinked++; }
+        else if (/^mailto:/i.test(raw)) { links.mailto++; links.linked++; }
+        else if (/^(tel|sms|callto):/i.test(raw)) { links.tel++; links.linked++; }
+        else if (raw.charAt(0) === "#") { links.anchor++; links.notLinked++; }
+        else if (/^(https?:)?\/\//i.test(raw)) { links.linked++; }
+        else if (/[{}%$\[\]<>|]/.test(raw)) { links.mergeTag++; links.linked++; }
+        else { links.relative++; links.notLinked++; }
+      }
+
+      /* --- duplicate attributes --- */
+      const seen = new Map();
+
+      for (let k = 0; k < tag.attrs.length; k++) {
+        const lower = tag.attrs[k].name.toLowerCase();
+        if (!seen.has(lower)) { seen.set(lower, k); continue; }
+
+        const first = tag.attrs[seen.get(lower)];
+        const dupe = tag.attrs[k];
+
+        if (opts.autofix) {
+          tag.attrs.splice(k, 1);
+          k--;
+          changed = true;
+          addIssue("attributes", "fix", "Removed duplicate " + lower + " attribute — the first one wins in every client", '<' + tag.lower + '> kept "' + first.value + '", dropped "' + dupe.value + '"', true, token);
+        } else {
+          addIssue("attributes", "error", "Duplicate " + lower + " attribute on <" + tag.lower + ">", 'kept "' + first.value + '" / dropped "' + dupe.value + '"', false, token);
+        }
+      }
+
+      /* --- every empty attribute --- */
+      if (opts.emptyAttrs) {
+        for (let k = tag.attrs.length - 1; k >= 0; k--) {
+          const a = tag.attrs[k];
+          const lower = a.name.toLowerCase();
+          if (a.value === null || a.value.trim() !== "") continue;
+
+          if (lower === "alt") {
+            addIssue("empty-attr", "info", 'alt="" kept — correct for a spacer or decorative image', "<" + tag.lower + "> — " + label, false, token);
+            continue;
+          }
+
+          if (lower === "href") continue;
+
+          if (KEEP_EMPTY.has(lower) || /^(data|aria)-/.test(lower)) {
+            addIssue("empty-attr", "warn", 'Empty ' + lower + '="" kept — check whether it should carry a value', "<" + tag.lower + "> — " + label, false, token);
+            continue;
+          }
+
+          if (opts.autofix) {
+            tag.attrs.splice(k, 1);
+            changed = true;
+            addIssue("empty-attr", "fix", 'Removed empty ' + lower + '=""', "<" + tag.lower + "> — " + label, true, token);
+          } else {
+            addIssue("empty-attr", "warn", 'Empty ' + lower + '="" found', "<" + tag.lower + "> — " + label, false, token);
+          }
+        }
+      }
+
+      /* --- duplicate properties inside a style attribute --- */
+      if (opts.duplicateProps) {
+        const styleAttr = getAttr(tag, "style");
+
+        if (styleAttr && styleAttr.value) {
+          const parsed = parseStyleAttr(styleAttr.value);
+          const result = dedupeDecls(parsed);
+
+          result.dropped.forEach(entry => {
+            if (opts.autofix) {
+              addIssue("duplicate-prop", "fix", 'Removed duplicate "' + entry.prop + '" from a style attribute', "<" + tag.lower + '> kept "' + entry.winner + '", dropped "' + entry.value + '"', true, token);
+            } else {
+              addIssue("duplicate-prop", "error", 'Property "' + entry.prop + '" is declared twice in a style attribute', "<" + tag.lower + '> "' + entry.winner + '" vs "' + entry.value + '"', false, token);
+            }
+          });
+
+          if (result.dropped.length && opts.autofix) {
+            styleAttr.value = serializeStyleAttr(result.list);
+            changed = true;
+          }
+        }
+      }
+
+      /* --- placeholder links: report, never touch --- */
+      if (tag.lower === "a") {
+        const href = getAttr(tag, "href");
+
+        if (href && href.value !== null) {
+          const value = href.value.trim();
+          if (value === "" || value === "#") {
+            addIssue("links", "warn", 'Link has href="' + value + '" — placeholder, left untouched', label, false, token);
+          }
+        } else if (!href) {
+          addIssue("links", "warn", "Link has no href attribute", label, false, token);
+        }
+      }
+
+      /* --- email build practice --- */
+      if (opts.bestPractice) {
+        if (tag.lower === "img") {
+          if (!getAttr(tag, "alt")) {
+            addIssue("practice", "warn", "Image has no alt attribute — add real alt text, or alt=\"\" if it is decorative", label, false, token);
+          }
+
+          const imgStyle = parseStyleAttr((getAttr(tag, "style") || {}).value || "");
+
+          if (!imgStyle.some(d => d.prop.toLowerCase() === "display")) {
+            addIssue("practice", "warn", "Image style has no display — Outlook and Gmail can leave a gap under it. display:block is the usual fix", label, false, token);
+          }
+
+          const src = getAttr(tag, "src");
+
+          if (src && isRelativeUrl(src.value)) {
+            addIssue("practice", "warn", "Image src is a relative path — mail clients cannot resolve it, use a full https:// URL", 'src="' + src.value + '"', false, token);
+          }
+        }
+
+        if (tag.lower === "a") {
+          const target = getAttr(tag, "href");
+
+          if (target && isRelativeUrl(target.value)) {
+            addIssue("practice", "warn", "Link href is a relative path — use a full https:// URL", 'href="' + target.value + '"', false, token);
+          }
+        }
+      }
+
+      /* --- double spaces inside class values --- */
+      const classCheck = getAttr(tag, "class");
+
+      if (classCheck && classCheck.value && /\s{2,}/.test(classCheck.value.trim())) {
+        if (opts.autofix) {
+          classCheck.value = classCheck.value.trim().replace(/\s+/g, " ");
+          changed = true;
+          addIssue("spacing", "fix", "Collapsed extra spaces inside a class attribute", "<" + tag.lower + '> class="' + classCheck.value + '"', true, token);
+        } else {
+          addIssue("spacing", "warn", "Extra spaces inside a class attribute", "<" + tag.lower + "> — " + label, false, token);
+        }
+      }
+
+      /* --- table attributes --- */
+      if (opts.tableAttrs && tag.lower === "table") {
+        const required = [["cellpadding", "0"], ["cellspacing", "0"], ["role", "presentation"]];
+        if (opts.requireBorder) required.unshift(["border", "0"]);
+
+        for (const [name, expected] of required) {
+          const attr = getAttr(tag, name);
+
+          if (!attr || attr.value === null || attr.value.trim() === "") {
+            if (opts.autofix) {
+              insertAttrBeforeStyle(tag, name, expected);
+              changed = true;
+              const list = missingTableAttrs.get(name) || 0;
+              missingTableAttrs.set(name, list + 1);
+              addIssue("table-attrs", "fix", 'Added ' + name + '="' + expected + '" to <table>', label, true, token);
+            } else {
+              addIssue("table-attrs", "warn", 'Missing ' + name + '="' + expected + '" on <table>', label, false, token);
+            }
+          } else if (attr.value.trim().toLowerCase() !== expected) {
+            addIssue(
+              "table-attrs",
+              "warn",
+              name + '="' + attr.value + '" is not "' + expected + '" — left as is, check it is intentional',
+              label,
+              false,
+              token
+            );
+          }
+        }
+      }
+
+      /* --- width / height attribute vs style --- */
+      const dims = [];
+      if (opts.widthSync) dims.push("width");
+      if (opts.heightSync) dims.push("height");
+
+      if (dims.length && !isNamespaced) {
+        for (const dim of dims) {
+          const attr = getAttr(tag, dim);
+          if (!attr || attr.value === null || attr.value.trim() === "") continue;
+
+          const wanted = normalizeLength(attr.value);
+          if (!wanted) continue;
+
+          const styleAttr = getAttr(tag, "style");
+          const decls = parseStyleAttr(styleAttr ? styleAttr.value : "");
+          const decl = styleLength(decls, dim);
+
+          if (!decl) {
+            if (opts.autofix) {
+              decls.push({ prop: dim, value: wanted, bare: false });
+              if (styleAttr) styleAttr.value = serializeStyleAttr(decls);
+              else setAttr(tag, "style", serializeStyleAttr(decls));
+              changed = true;
+              addIssue("dimension-sync", "fix", 'Added ' + dim + ":" + wanted + " to style (matches " + dim + '="' + attr.value + '")', "<" + tag.lower + "> — " + label, true, token);
+            } else {
+              addIssue("dimension-sync", "warn", dim + '="' + attr.value + '" has no matching ' + dim + " in style", "<" + tag.lower + "> — " + label, false, token);
+            }
+            continue;
+          }
+
+          const important = /!important/i.test(decl.value);
+          const current = normalizeLength(decl.value.replace(/!important/i, "").trim());
+
+          if (current === wanted) continue;
+
+          const fluid = current && current.endsWith("%") && wanted.endsWith("px");
+
+          if (fluid && !opts.forceWidthFix) {
+            addIssue(
+              "dimension-sync",
+              "warn",
+              dim + '="' + attr.value + '" vs style ' + dim + ":" + decl.value + " — fluid pattern, not changed. Turn on \"Force px/% fixes\" to override",
+              "<" + tag.lower + "> — " + label,
+              false,
+              token
+            );
+            continue;
+          }
+
+          if (opts.autofix) {
+            const before = decl.value;
+            decl.value = wanted + (important ? " !important" : "");
+            const styleRef = getAttr(tag, "style");
+            styleRef.value = serializeStyleAttr(decls);
+            changed = true;
+            addIssue("dimension-sync", "fix", dim + " mismatch fixed: style " + dim + ":" + before + " → " + decl.value + ' (attribute ' + dim + '="' + attr.value + '" wins)', "<" + tag.lower + "> — " + label, true, token);
+          } else {
+            addIssue("dimension-sync", "error", dim + ' mismatch: attribute "' + attr.value + '" vs style "' + decl.value + '"', "<" + tag.lower + "> — " + label, false, token);
+          }
+        }
+      }
+
+      if (changed) token.value = serializeTag(tag);
+
+      const classAttr = getAttr(tag, "class");
+      if (classAttr && classAttr.value) {
+        classTokens.push(token);
+        for (const cls of classAttr.value.split(/\s+/).filter(Boolean)) {
+          usedClasses.set(cls, (usedClasses.get(cls) || 0) + 1);
+        }
+      }
+    }
+
+    for (const token of tokens) if (token.type === "cond-open") stats.conditionals++;
+
+    /* --- double spaces between words in visible content --- */
+    for (const token of tokens) {
+      if (token.type !== "text") continue;
+
+      const match = /(\S[^\S\n]{2,}\S)/.exec(token.value);
+      if (!match) continue;
+
+      const at = Math.max(0, match.index - 25);
+      const snippet = token.value.slice(at, match.index + match[0].length + 25).replace(/\n/g, " ").trim();
+
+      addIssue(
+        "spacing",
+        opts.autofix ? "fix" : "warn",
+        opts.autofix ? "Collapsed a double space in the text content" : "Double space in the text content",
+        snippet,
+        opts.autofix,
+        token
+      );
+    }
+
+    /* Commented-out markup still counts as usage — never delete its CSS. */
+    for (const token of tokens) {
+      if (token.type !== "comment") continue;
+      const re = /class\s*=\s*("([^"]*)"|'([^']*)')/gi;
+      let m;
+      while ((m = re.exec(token.value)) !== null) {
+        const list = (m[2] !== undefined ? m[2] : m[3] || "").split(/\s+/).filter(Boolean);
+        for (const cls of list) usedClasses.set(cls, (usedClasses.get(cls) || 0) + 1);
+      }
+    }
+
+    /* ---------- pass 2: CSS ---------- */
+    const cssTokens = tokens.filter(t => t.type === "raw" && t.name === "style");
+    const cssTrees = cssTokens.map(t => parseCss(t.value));
+    const definedClasses = new Set();
+
+    const walkRules = (nodes, fn) => {
+      for (const node of nodes) {
+        if (node.type === "rule") fn(node, nodes);
+        else if (node.type === "at") walkRules(node.children, fn);
+      }
+    };
+
+    for (const tree of cssTrees) {
+      walkRules(tree, rule => {
+        for (const cls of collectSelectorClasses(rule.selector)) definedClasses.add(cls);
+      });
+    }
+
+    /* --- duplicate properties inside stylesheet rules --- */
+    if (opts.duplicateProps) {
+      cssTrees.forEach((tree, treeIndex) => {
+        walkRules(tree, rule => {
+          const result = dedupeDecls(rule.decls);
+          if (!result.dropped.length) return;
+
+          const where = { node: rule, styleToken: cssTokens[treeIndex] };
+
+          result.dropped.forEach(entry => {
+            if (opts.autofix) {
+              addIssue("duplicate-prop", "fix", 'Removed duplicate "' + entry.prop + '" from ' + rule.selector, 'kept "' + entry.winner + '", dropped "' + entry.value + '"', true, where);
+            } else {
+              addIssue("duplicate-prop", "error", 'Property "' + entry.prop + '" is declared twice in ' + rule.selector, '"' + entry.winner + '" vs "' + entry.value + '"', false, where);
+            }
+          });
+
+          if (opts.autofix) rule.decls = result.list;
+        });
+      });
+    }
+
+    /* --- unused classes --- */
+    if (opts.unusedClasses) {
+      const unusedInCss = new Set();
+      const keptClientClasses = new Set();
+
+      for (const tree of cssTrees) {
+        const prune = nodes => {
+          for (let k = nodes.length - 1; k >= 0; k--) {
+            const node = nodes[k];
+
+            if (node.type === "at") { prune(node.children); continue; }
+            if (node.type !== "rule") continue;
+
+            const parts = safeSplit(node.selector, ",");
+            const keep = [];
+
+            for (const part of parts) {
+              const classes = collectSelectorClasses(part);
+              const client = classes.filter(isProtectedClass);
+              const dead = classes.filter(c => !usedClasses.has(c) && !isProtectedClass(c));
+
+              if (client.length) client.forEach(c => keptClientClasses.add(c));
+
+              if (classes.length && dead.length && !client.length) {
+                dead.forEach(c => unusedInCss.add(c));
+                if (!opts.autofix) keep.push(part);
+              } else {
+                keep.push(part);
+              }
+            }
+
+            if (opts.autofix && keep.length === 0) nodes.splice(k, 1);
+            else if (opts.autofix && keep.length !== parts.length) node.selector = keep.join(", ");
+          }
+        };
+        prune(tree);
+      }
+
+      if (keptClientClasses.size) {
+        addIssue(
+          "unused-class",
+          "info",
+          "Kept " + keptClientClasses.size + " email-client class" + (keptClientClasses.size === 1 ? "" : "es") + " that the client adds at render time",
+          Array.from(keptClientClasses).map(c => "." + c).join(", "),
+          false
+        );
+      }
+
+      for (const cls of unusedInCss) {
+        addIssue(
+          "unused-class",
+          opts.autofix ? "fix" : "warn",
+          (opts.autofix ? "Removed CSS rule for ." : "CSS class .") + cls + (opts.autofix ? " — not used anywhere in the HTML" : " is never used in the HTML"),
+          "",
+          opts.autofix
+        );
+      }
+
+      /* classes used in HTML but defined nowhere */
+      const orphan = new Map();
+
+      if (!cssTrees.length && classTokens.length) {
+        addIssue(
+          "unused-class",
+          "info",
+          "No <style> block in this HTML, so classes on tags were left alone",
+          "Rules may live in an external or parent template",
+          false
+        );
+      }
+
+      for (const token of (cssTrees.length ? classTokens : [])) {
+        const tag = parseTag(token.value);
+        if (!tag) continue;
+
+        const classAttr = getAttr(tag, "class");
+        if (!classAttr || !classAttr.value) continue;
+
+        const list = classAttr.value.split(/\s+/).filter(Boolean);
+        const keep = list.filter(c => definedClasses.has(c) || isProtectedClass(c));
+        const dropped = list.filter(c => !definedClasses.has(c) && !isProtectedClass(c));
+
+        if (!dropped.length) continue;
+
+        dropped.forEach(c => {
+          orphan.set(c, (orphan.get(c) || 0) + 1);
+          addIssue(
+            "unused-class",
+            opts.autofix ? "fix" : "warn",
+            (opts.autofix ? 'Removed class="' : 'Class "') + c + '" — no matching CSS rule',
+            "<" + tag.lower + ">",
+            opts.autofix,
+            token
+          );
+        });
+
+        if (!opts.autofix) continue;
+
+        if (keep.length) classAttr.value = keep.join(" ");
+        else tag.attrs.splice(tag.attrs.indexOf(classAttr), 1);
+
+        token.value = serializeTag(tag);
+      }
+
+
+    }
+
+    /* --- media queries, compared across every <style> block --- */
+    const mediaBlocks = [];
+
+    cssTrees.forEach((tree, treeIndex) => {
+      tree.forEach(node => {
+        if (node.type === "at" && /^@media/i.test(node.prelude)) {
+          mediaBlocks.push({ block: node, styleToken: cssTokens[treeIndex] });
+        }
+      });
+    });
+
+    stats.mediaBlocks = mediaBlocks.length;
+
+    if (opts.mediaSync && mediaBlocks.length) {
+      if (mediaBlocks.length === 1) {
+        addIssue(
+          "media-sync",
+          "info",
+          "Only one @media block in the whole document — nothing to compare it against",
+          mediaBlocks[0].block.prelude,
+          false,
+          { node: mediaBlocks[0].block, styleToken: mediaBlocks[0].styleToken }
+        );
+      }
+
+      const groups = new Map();
+
+      mediaBlocks.forEach(entry => {
+        const key = normalizeMedia(entry.block.prelude);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(entry);
+      });
+
+      stats.breakpoints = groups.size;
+
+      /* Blocks that share a breakpoint must end up identical. */
+      for (const group of groups.values()) {
+        if (group.length < 2) continue;
+
+        const reference = new Map();
+        const order = [];
+
+        group.forEach((entry, blockIndex) => {
+          for (const child of entry.block.children) {
+            if (child.type !== "rule") continue;
+
+            const sel = normalizeSelector(child.selector);
+
+            if (!reference.has(sel)) {
+              reference.set(sel, { decls: child.decls, blockIndex: blockIndex });
+              order.push(sel);
+              continue;
+            }
+
+            const ref = reference.get(sel);
+            if (declsKey(ref.decls) === declsKey(child.decls)) continue;
+
+            const before = declsText(child.decls);
+            const after = declsText(ref.decls);
+
+            if (opts.autofix) {
+              child.decls = ref.decls.map(d => Object.assign({}, d));
+              addIssue(
+                "media-sync",
+                "fix",
+                "Aligned " + sel + " in media block " + (blockIndex + 1) + " to block " + (ref.blockIndex + 1),
+                before + "   →   " + after,
+                true,
+                { node: child, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "media-sync",
+                "error",
+                sel + " has different values in media block " + (ref.blockIndex + 1) + " and " + (blockIndex + 1),
+                after + "   vs   " + before,
+                false,
+                { node: child, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+
+        group.forEach((entry, blockIndex) => {
+          const present = new Set(
+            entry.block.children.filter(c => c.type === "rule").map(c => normalizeSelector(c.selector))
+          );
+
+          for (const sel of order) {
+            if (present.has(sel)) continue;
+
+            const ref = reference.get(sel);
+
+            if (opts.autofix) {
+              const copy = {
+                type: "rule",
+                selector: sel,
+                decls: ref.decls.map(d => Object.assign({}, d))
+              };
+              entry.block.children.push(copy);
+              addIssue(
+                "media-sync",
+                "fix",
+                "Added " + sel + " to media block " + (blockIndex + 1) + " (copied from block " + (ref.blockIndex + 1) + ")",
+                shortCondition(entry.block.prelude),
+                true,
+                { node: copy, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "media-sync",
+                "warn",
+                sel + " is missing from media block " + (blockIndex + 1),
+                shortCondition(entry.block.prelude),
+                false,
+                { node: entry.block, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+      }
+
+      /* Same class, different breakpoint, different value. */
+      if (opts.crossMedia && groups.size > 1) {
+        addIssue(
+          "cross-media",
+          "info",
+          groups.size + " breakpoints found — shared classes were compared across them",
+          Array.from(groups.keys()).map(k => shortCondition("@media " + k)).join("   |   "),
+          false
+        );
+
+        const firstSeen = new Map();
+
+        mediaBlocks.forEach(entry => {
+          const cond = normalizeMedia(entry.block.prelude);
+
+          for (const child of entry.block.children) {
+            if (child.type !== "rule") continue;
+
+            const sel = normalizeSelector(child.selector);
+
+            if (!firstSeen.has(sel)) {
+              firstSeen.set(sel, { rule: child, cond: cond, prelude: entry.block.prelude });
+              continue;
+            }
+
+            const ref = firstSeen.get(sel);
+
+            /* Blocks that share a condition were handled above. */
+            if (ref.cond === cond) continue;
+            if (declsKey(ref.rule.decls) === declsKey(child.decls)) continue;
+
+            const before = declsText(child.decls);
+            const after = declsText(ref.rule.decls);
+            const here = shortCondition(entry.block.prelude);
+            const there = shortCondition(ref.prelude);
+
+            if (opts.autofix) {
+              child.decls = ref.rule.decls.map(d => Object.assign({}, d));
+              addIssue(
+                "cross-media",
+                "fix",
+                "Aligned " + sel + " at " + here + " to the first breakpoint " + there,
+                before + "   →   " + after,
+                true,
+                { node: child, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "cross-media",
+                "error",
+                sel + " differs between " + there + " and " + here,
+                there + " " + after + "   vs   " + here + " " + before,
+                false,
+                { node: child, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+      }
+    }
+    /* ---------- format ---------- */
+    const html = render(tokens, cssTokens, cssTrees, opts, addIssue);
+
+    /* Line numbers refer to the formatted output the person is reading. */
+    issues.forEach(issue => {
+      const at = issue.at;
+      issue.at = null;
+      if (!at) return;
+
+      if (at.type === "raw" || at.srcLine !== undefined) {
+        if (at.outLine) issue.line = at.outLine;
+        return;
+      }
+
+      if (at.node && at.styleToken && at.styleToken.outBase !== undefined && at.node.outLine !== undefined) {
+        issue.line = at.styleToken.outBase + at.node.outLine + 1;
+      }
+    });
+
+    return { html: html, issues: issues, stats: stats };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Renderer                                                            */
+  /* ------------------------------------------------------------------ */
+
+  function render(tokens, cssTokens, cssTrees, opts, addIssue) {
+    const indentUnit = opts.indent;
+    const lines = [];
+    const stack = [];
+    let level = 0;
+    let inline = "";
+    let pending = [];
+
+    const pad = () => indentUnit.repeat(level);
+    const top = () => (stack.length ? stack[stack.length - 1] : null);
+
+    /* Conditional comments that only wrap inline content stay on one line. */
+    /* With expandConditionals on (the default) every conditional comment
+       gets its own lines, which is how Outlook VML blocks are normally
+       read. Off, a conditional wrapping only inline content stays inline. */
+    const inlineCond = new Array(tokens.length).fill(false);
+    (function markConditionals() {
+      if (opts.expandConditionals) return;
+      const open = [];
+      tokens.forEach((token, index) => {
+        if (token.type === "cond-open") { open.push({ index: index, inline: true }); return; }
+
+        if (token.type === "cond-close") {
+          const start = open.pop();
+          if (!start) return;
+          inlineCond[start.index] = start.inline;
+          inlineCond[index] = start.inline;
+          return;
+        }
+
+        if (!open.length) return;
+
+        const blocky =
+          (token.type === "open" || token.type === "close" || token.type === "self") &&
+          !INLINE_TAGS.has(token.name);
+
+        if (blocky || token.type === "comment" || token.type === "raw") {
+          open.forEach(entry => { entry.inline = false; });
+        }
+      });
+    })();
+
+    function flushInline() {
+      const text = inline.replace(/[ \t]+/g, " ").trim();
+      const carried = pending;
+      inline = "";
+      pending = [];
+
+      if (!text) return;
+
+      const frame = top();
+      let target;
+
+      if (frame && frame.lineIndex === lines.length - 1 && !frame.blockChild) {
+        lines[frame.lineIndex] += text;
+        target = frame.lineIndex;
+      } else {
+        lines.push(pad() + text);
+        target = lines.length - 1;
+      }
+
+      carried.forEach(token => { token.outLine = target + 1; });
+    }
+
+    function markParentBlock() {
+      const frame = top();
+      if (frame) frame.blockChild = true;
+    }
+
+    function pushLine(text) {
+      lines.push(pad() + text);
+      return lines.length - 1;
+    }
+
+    tokens.forEach((token, index) => {
+      const type = token.type;
+
+      if (type === "text") {
+        const text = token.value.replace(/\s+/g, " ");
+        if (!text.trim()) {
+          if (inline) inline += " ";
+          return;
+        }
+        inline += inline ? text : text.replace(/^\s+/, "");
+        pending.push(token);
+        return;
+      }
+
+      if (type === "cond-open") {
+        if (inlineCond[index]) { inline += token.value.trim(); pending.push(token); return; }
+        flushInline();
+        markParentBlock();
+        token.outLine = pushLine(token.value.trim()) + 1;
+        stack.push({ type: "cond", level: level, lineIndex: lines.length - 1, blockChild: true });
+        level++;
+        return;
+      }
+
+      if (type === "cond-close") {
+        if (inlineCond[index]) { inline += token.value.trim(); pending.push(token); return; }
+        flushInline();
+
+        let frame = null;
+        for (let k = stack.length - 1; k >= 0; k--) {
+          if (stack[k].type === "cond") { frame = stack[k]; stack.length = k; break; }
+        }
+
+        level = frame ? frame.level : Math.max(0, level - 1);
+        token.outLine = pushLine(token.value.trim()) + 1;
+        markParentBlock();
+        return;
+      }
+
+      if (type === "doctype" || type === "comment") {
+        flushInline();
+        markParentBlock();
+        token.outLine = pushLine(token.value.trim()) + 1;
+        return;
+      }
+
+      if (type === "raw") {
+        const cssIndex = cssTokens.indexOf(token);
+        markParentBlock();
+
+        if (cssIndex !== -1) {
+          token.outBase = lines.length;
+          token.outLine = lines.length + 1;
+          serializeCssInto(cssTrees[cssIndex], level, indentUnit, []).forEach(row => lines.push(row));
+          return;
+        }
+
+        const body = token.value.replace(/^\n+|\s+$/g, "");
+        if (!body.trim()) return;
+        body.split("\n").forEach(row => {
+          const clean = row.trim();
+          lines.push(clean ? pad() + clean : "");
+        });
+        return;
+      }
+
+      if (type === "self" || type === "open" || type === "close") {
+        const name = token.name;
+        const value = token.value.replace(/\s+/g, " ").replace(/\s+>/, ">").trim();
+
+        if (INLINE_TAGS.has(name)) { inline += value; pending.push(token); return; }
+
+        flushInline();
+
+        if (type === "close") {
+          let found = -1;
+          for (let k = stack.length - 1; k >= 0; k--) {
+            if (stack[k].type === "tag" && stack[k].name === name) { found = k; break; }
+            if (stack[k].type === "cond") break; /* never close across a conditional */
+          }
+
+          if (found === -1) {
+            markParentBlock();
+            token.outLine = pushLine(value) + 1;
+
+            /* Ghost-table markup closes tags opened in an earlier
+               conditional block, which is normal and not an error. */
+            const insideConditional = stack.some(frame => frame.type === "cond");
+
+            if (!insideConditional) {
+              addIssue("structure", "warn", "Closing tag " + value + " has no matching opening tag", "", false);
+            }
+            return;
+          }
+
+          for (let k = stack.length - 1; k > found; k--) {
+            addIssue("structure", "warn", "Tag <" + stack[k].name + "> was never closed", "", false);
+          }
+
+          const frame = stack[found];
+          stack.length = found;
+          level = frame.level;
+
+          if (frame.lineIndex === lines.length - 1 && !frame.blockChild) {
+            lines[frame.lineIndex] += value;
+            token.outLine = frame.lineIndex + 1;
+          } else {
+            token.outLine = pushLine(value) + 1;
+          }
+
+          markParentBlock();
+          return;
+        }
+
+        markParentBlock();
+        const lineIndex = pushLine(value);
+        token.outLine = lineIndex + 1;
+
+        if (type === "open") {
+          stack.push({ type: "tag", name: name, level: level, lineIndex: lineIndex, blockChild: false });
+          level++;
+        }
+      }
+    });
+
+    flushInline();
+
+    return lines.join("\n").replace(/[ \t]+$/gm, "");
+  }
+
+  return {
+    process: process,
+    tokenize: tokenize,
+    parseTag: parseTag,
+    parseCss: parseCss
+  };
+});
+</script>
+<script>
+(() => {
+  "use strict";
+
+  const byId = id => document.getElementById(id);
+
+  const input = byId("input");
+  const output = byId("output");
+  const reportFixed = byId("reportFixed");
+  const reportOpen = byId("reportOpen");
+  const reportSub = byId("reportSub");
+  const fixedCount = byId("fixedCount");
+  const openCount = byId("openCount");
+  const summary = byId("summary");
+  const status = byId("status");
+  const inputMeta = byId("inputMeta");
+  const outputMeta = byId("outputMeta");
+  const indentSelect = byId("indentSelect");
+  const themeSelect = byId("themeSelect");
+  const fileInput = byId("fileInput");
+  const statsBar = byId("stats");
+  const searchBox = byId("reportSearch");
+  const filterBar = byId("filters");
+  const showDetails = byId("optShowDetails");
+
+  const toggles = {
+    autofix: byId("optAutofix"),
+    tableAttrs: byId("optTableAttrs"),
+    requireBorder: byId("optRequireBorder"),
+    widthSync: byId("optWidthSync"),
+    heightSync: byId("optHeightSync"),
+    forceWidthFix: byId("optForceWidthFix"),
+    mediaSync: byId("optMediaSync"),
+    crossMedia: byId("optCrossMedia"),
+    duplicateProps: byId("optDuplicateProps"),
+    emptyAttrs: byId("optEmptyAttrs"),
+    unusedClasses: byId("optUnusedClasses"),
+    bestPractice: byId("optBestPractice"),
+    expandConditionals: byId("optExpandConditionals")
+  };
+
+  const GROUP_TITLES = {
+    "structure": "Tag structure",
+    "attributes": "Attributes",
+    "table-attrs": "Table attributes",
+    "dimension-sync": "Width and height",
+    "media-sync": "Media query parity",
+    "cross-media": "Breakpoint differences",
+    "duplicate-prop": "Duplicate properties",
+    "empty-attr": "Empty attributes",
+    "links": "Links",
+    "spacing": "Spacing",
+    "practice": "Email best practice",
+    "unused-class": "Classes"
+  };
+
+  const GROUP_ORDER = [
+    "structure",
+    "attributes",
+    "table-attrs",
+    "dimension-sync",
+    "media-sync",
+    "cross-media",
+    "duplicate-prop",
+    "empty-attr",
+    "links",
+    "spacing",
+    "practice",
+    "unused-class"
+  ];
+
+  let lastIssues = [];
+  let lastStats = null;
+  let levelFilter = "all";
+  let lastOutput = "";
+
+  /* The output pane is drawn line by line so every finding can be
+     reached by its line number. Very large files stay plain text. */
+  function paintOutput(text) {
+    lastOutput = text;
+    output.innerHTML = "";
+
+    if (!text) return;
+
+    const rows = text.split("\n");
+
+    if (rows.length > 8000) {
+      output.textContent = text;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    rows.forEach((row, index) => {
+      const line = document.createElement("div");
+      line.className = "code-line";
+      line.dataset.line = index + 1;
+
+      const number = document.createElement("span");
+      number.className = "ln";
+      number.textContent = index + 1;
+
+      const code = document.createElement("span");
+      code.className = "src";
+      code.textContent = row || " ";
+
+      line.appendChild(number);
+      line.appendChild(code);
+      frag.appendChild(line);
+    });
+
+    output.appendChild(frag);
+  }
+
+  function jumpToLine(line) {
+    const row = output.querySelector('[data-line="' + line + '"]');
+
+    if (!row) {
+      setStatus("Line " + line + " is not shown in this view.", "err");
+      return;
+    }
+
+    output.querySelectorAll(".code-line.flash").forEach(el => el.classList.remove("flash"));
+    row.classList.add("flash");
+    setTimeout(() => row.classList.remove("flash"), 1600);
+
+    if (typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }
+
+  function readOptions() {
+    const indent = indentSelect.value === "tab"
+      ? "\t"
+      : " ".repeat(Number(indentSelect.value));
+
+    const opts = { indent: indent };
+    for (const key in toggles) opts[key] = toggles[key].checked;
+    return opts;
+  }
+
+  function paintToggles() {
+    for (const key in toggles) {
+      toggles[key].parentElement.classList.toggle("on", toggles[key].checked);
+    }
+  }
+
+  const GMAIL_LIMIT = 102400;
+
+  function byteSize(text) {
+    if (typeof TextEncoder === "function") return new TextEncoder().encode(text).length;
+    return unescape(encodeURIComponent(text)).length;
+  }
+
+  function sizeLabel(text) {
+    const bytes = byteSize(text);
+    return (bytes / 1024).toFixed(1) + " KB";
+  }
+
+  function updateMeta() {
+    inputMeta.textContent = input.value.length.toLocaleString() + " chars · " + sizeLabel(input.value);
+
+    const bytes = byteSize(lastOutput);
+    outputMeta.textContent =
+      lastOutput.length.toLocaleString() + " chars · " + sizeLabel(lastOutput) +
+      (bytes > GMAIL_LIMIT ? " · over Gmail's 102 KB clip limit" : "");
+    outputMeta.style.color = bytes > GMAIL_LIMIT ? "var(--danger)" : "";
+  }
+
+  /* Theme choice is remembered when the browser allows it. */
+  function applyTheme(name) {
+    document.documentElement.setAttribute("data-theme", name);
+    try { localStorage.setItem("ehb-theme", name); } catch (error) { /* private mode */ }
+  }
+
+  function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem("ehb-theme"); } catch (error) { saved = null; }
+
+    const name = saved || "soft";
+    themeSelect.value = name;
+    document.documentElement.setAttribute("data-theme", name);
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      input.value = String(reader.result || "");
+      setStatus(file.name + " loaded.", "ok");
+      run();
+    };
+
+    reader.onerror = () => setStatus("Could not read " + file.name + ".", "err");
+    reader.readAsText(file);
+  }
+
+  function setStatus(message, type) {
+    status.textContent = message;
+    status.className = "status " + (type || "");
+  }
+
+  function statTile(key, value, tone, hint) {
+    const tile = document.createElement("div");
+    tile.className = "stat" + (tone ? " " + tone : "");
+    if (hint) tile.title = hint;
+
+    const k = document.createElement("span");
+    k.className = "k";
+    k.textContent = key;
+
+    const v = document.createElement("span");
+    v.className = "v";
+    v.textContent = value;
+
+    tile.appendChild(k);
+    tile.appendChild(v);
+    return tile;
+  }
+
+  function renderStats(stats) {
+    statsBar.innerHTML = "";
+    if (!stats) return;
+
+    const links = stats.links;
+    const bytes = byteSize(lastOutput);
+
+    const notLinkedHint = [
+      links.missing + " with no href",
+      links.empty + ' with href=""',
+      links.placeholder + ' with href="#"',
+      links.anchor + " anchor only",
+      links.relative + " relative path"
+    ].join(" · ");
+
+    const tiles = [
+      statTile("Links", links.total, "", "Every <a> tag in the document"),
+      statTile("Linked", links.linked, links.linked ? "good" : "", "Full URLs, merge tags, mailto and tel"),
+      statTile("Not linked", links.notLinked, links.notLinked ? "flag" : "", notLinkedHint),
+      statTile("mailto:", links.mailto, "", "Links that open a mail client"),
+      statTile("tel:", links.tel, "", "Links that dial a number"),
+      statTile("Tables", stats.tables, "", "Total <table> tags"),
+      statTile("Images", stats.images, "", "Total <img> tags"),
+      statTile("Conditionals", stats.conditionals, "", "Outlook conditional blocks"),
+      statTile("Breakpoints", stats.breakpoints, "", stats.mediaBlocks + " @media blocks in total"),
+      statTile(
+        "Output",
+        (bytes / 1024).toFixed(1) + " KB",
+        bytes > GMAIL_LIMIT ? "bad" : "",
+        bytes > GMAIL_LIMIT ? "Over Gmail's 102 KB clipping limit" : "Under Gmail's 102 KB clipping limit"
+      )
+    ];
+
+    tiles.forEach(tile => statsBar.appendChild(tile));
+  }
+
+  function applyFilters() {
+    const term = searchBox.value.trim().toLowerCase();
+    let visible = 0;
+
+    document.querySelectorAll(".report-body .issue").forEach(row => {
+      const level = row.dataset.level;
+      const text = (row.dataset.text || "");
+      const levelOk = levelFilter === "all" || level === levelFilter;
+      const textOk = !term || text.indexOf(term) !== -1;
+      const show = levelOk && textOk;
+
+      row.classList.toggle("hidden", !show);
+      if (show) visible++;
+    });
+
+    document.querySelectorAll(".report-body .issue-group").forEach(group => {
+      const any = group.querySelector(".issue:not(.hidden)");
+      group.style.display = any ? "" : "none";
+    });
+
+    if ((term || levelFilter !== "all") && !visible) {
+      setStatus("No findings match this filter.", "");
+    }
+  }
+
+  function renderSummary(issues) {
+    const counts = { fix: 0, warn: 0, error: 0, info: 0 };
+    issues.forEach(issue => { counts[issue.level] = (counts[issue.level] || 0) + 1; });
+
+    const pills = [];
+    if (counts.fix) pills.push(["fix", counts.fix + " fixed"]);
+    if (counts.error) pills.push(["error", counts.error + " to fix by hand"]);
+    if (counts.warn) pills.push(["warn", counts.warn + " to review"]);
+    if (counts.info) pills.push(["", counts.info + " note" + (counts.info === 1 ? "" : "s")]);
+    if (!pills.length) pills.push(["", "nothing to report"]);
+
+    summary.innerHTML = "";
+
+    pills.forEach(pair => {
+      const span = document.createElement("span");
+      span.className = "pill " + pair[0];
+      span.textContent = pair[1];
+      summary.appendChild(span);
+    });
+  }
+
+  /* Repeated findings fold into a single row with a count. */
+  function aggregate(issues) {
+    const map = new Map();
+
+    issues.forEach(issue => {
+      const key = issue.rule + "||" + issue.level + "||" + issue.message;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          rule: issue.rule,
+          level: issue.level,
+          message: issue.message,
+          count: 0,
+          details: [],
+          hidden: 0,
+          lines: [],
+          hiddenLines: 0
+        });
+      }
+
+      const entry = map.get(key);
+      entry.count++;
+
+      if (issue.line) {
+        if (entry.lines.indexOf(issue.line) === -1) {
+          if (entry.lines.length < 8) entry.lines.push(issue.line);
+          else entry.hiddenLines++;
+        }
+      }
+
+      if (!issue.detail) return;
+      if (entry.details.length < 3) entry.details.push(issue.detail);
+      else entry.hidden++;
+    });
+
+    const rows = Array.from(map.values());
+    rows.forEach(row => row.lines.sort((a, b) => a - b));
+    return rows;
+  }
+
+  function renderColumn(container, issues, emptyText) {
+    container.innerHTML = "";
+
+    if (!issues.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = emptyText;
+      container.appendChild(empty);
+      return;
+    }
+
+    const rows = aggregate(issues);
+    const groups = new Map();
+
+    rows.forEach(row => {
+      if (!groups.has(row.rule)) groups.set(row.rule, []);
+      groups.get(row.rule).push(row);
+    });
+
+    const keys = Array.from(groups.keys()).sort(
+      (a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)
+    );
+
+    keys.forEach(key => {
+      const list = groups.get(key);
+      const total = list.reduce((sum, row) => sum + row.count, 0);
+
+      const section = document.createElement("div");
+      section.className = "issue-group";
+
+      const title = document.createElement("div");
+      title.className = "group-title";
+      title.textContent = GROUP_TITLES[key] || key;
+
+      const count = document.createElement("span");
+      count.className = "group-count";
+      count.textContent = total;
+      title.appendChild(count);
+      section.appendChild(title);
+
+      list.forEach(row => {
+        const item = document.createElement("div");
+        item.className = "issue";
+        item.dataset.level = row.level;
+        item.dataset.text = (row.message + " " + row.details.join(" ")).toLowerCase();
+
+        const dot = document.createElement("span");
+        dot.className = "dot " + row.level;
+
+        const body = document.createElement("div");
+
+        /* message, repeat count and line chips share one row */
+        const head = document.createElement("div");
+        head.className = "issue-row";
+
+        const text = document.createElement("span");
+        text.className = "msg";
+        text.textContent = row.message;
+
+        if (row.count > 1) {
+          const times = document.createElement("span");
+          times.className = "times";
+          times.textContent = "×" + row.count;
+          text.appendChild(times);
+        }
+
+        head.appendChild(text);
+
+        if (row.lines.length) {
+          const lines = document.createElement("span");
+          lines.className = "lines";
+
+          row.lines.forEach(line => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "line-chip";
+            chip.textContent = "L" + line;
+            chip.title = "Jump to line " + line + " of the formatted output";
+            chip.addEventListener("click", () => jumpToLine(line));
+            lines.appendChild(chip);
+          });
+
+          if (row.hiddenLines) {
+            const more = document.createElement("span");
+            more.className = "line-chip more";
+            more.textContent = "+" + row.hiddenLines;
+            more.title = row.hiddenLines + " more occurrences";
+            lines.appendChild(more);
+          }
+
+          head.appendChild(lines);
+        }
+
+        body.appendChild(head);
+
+        /* details stay folded away until asked for */
+        if (row.details.length) {
+          const wrap = document.createElement("details");
+          wrap.className = "detail-wrap";
+          wrap.open = showDetails.checked;
+
+          const summary = document.createElement("summary");
+          summary.textContent = row.details.length === 1
+            ? "details"
+            : row.details.length + " examples";
+
+          const detail = document.createElement("div");
+          detail.className = "detail";
+          detail.textContent =
+            row.details.join("\n") + (row.hidden ? "\n+ " + row.hidden + " more" : "");
+
+          wrap.appendChild(summary);
+          wrap.appendChild(detail);
+          body.appendChild(wrap);
+        }
+
+        item.appendChild(dot);
+        item.appendChild(body);
+        section.appendChild(item);
+      });
+
+      container.appendChild(section);
+    });
+  }
+
+  function renderReport(issues) {
+    renderSummary(issues);
+
+    const fixed = issues.filter(issue => issue.level === "fix");
+    const open = issues.filter(issue => issue.level !== "fix");
+
+    fixedCount.textContent = fixed.length;
+    openCount.textContent = open.length;
+
+    renderColumn(
+      reportFixed,
+      fixed,
+      toggles.autofix.checked
+        ? "Nothing needed fixing."
+        : "Fixes are switched off, so nothing was changed."
+    );
+
+    renderColumn(reportOpen, open, "Nothing left to review.");
+
+    renderStats(lastStats);
+    applyFilters();
+
+    reportSub.textContent = issues.length
+      ? fixed.length + " change" + (fixed.length === 1 ? "" : "s") + " applied · " +
+        open.length + " item" + (open.length === 1 ? "" : "s") + " left for you"
+      : "Every check passed.";
+  }
+
+  function clearReport() {
+    reportFixed.innerHTML = "";
+    reportOpen.innerHTML = "";
+    statsBar.innerHTML = "";
+    lastStats = null;
+    summary.innerHTML = "";
+    fixedCount.textContent = "0";
+    openCount.textContent = "0";
+    reportSub.textContent = "Run a format to see the results.";
+  }
+
+  function reportAsText(issues) {
+    if (!issues.length) return "Email HTML checks: all passed.";
+
+    const line = issue =>
+      "- " + (issue.line ? "L" + issue.line + "  " : "") + issue.message +
+      (issue.detail ? "\n    " + issue.detail : "");
+    const fixedList = issues.filter(i => i.level === "fix");
+    const openList = issues.filter(i => i.level !== "fix");
+
+    return [
+      "FIXED (" + fixedList.length + ")",
+      fixedList.length ? fixedList.map(line).join("\n") : "- nothing",
+      "",
+      "NEEDS ATTENTION (" + openList.length + ")",
+      openList.length ? openList.map(line).join("\n") : "- nothing"
+    ].join("\n");
+  }
+
+  function run() {
+    if (!input.value.trim()) {
+      paintOutput("");
+      lastIssues = [];
+      clearReport();
+      updateMeta();
+      setStatus("Paste HTML into the input first.");
+      return;
+    }
+
+    try {
+      const result = EmailTool.process(input.value, readOptions());
+      lastStats = result.stats;
+      paintOutput(result.html);
+      lastIssues = result.issues;
+      renderReport(result.issues);
+      updateMeta();
+
+      const fixed = result.issues.filter(i => i.level === "fix").length;
+      const open = result.issues.length - fixed;
+      const needsHand = result.issues.filter(i => i.level === "warn" || i.level === "error").length;
+
+      setStatus(
+        "Formatted. " + fixed + " fix" + (fixed === 1 ? "" : "es") + " applied · " + open + " item" + (open === 1 ? "" : "s") + " listed on the right.",
+        needsHand ? "" : "ok"
+      );
+    } catch (error) {
+      setStatus("Could not format the HTML: " + error.message, "err");
+    }
+  }
+
+  async function copyText(text, okMessage) {
+    if (!text) {
+      setStatus("Nothing to copy.", "err");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus(okMessage, "ok");
+    } catch {
+      const temp = document.createElement("textarea");
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      temp.remove();
+      setStatus(okMessage, "ok");
+    }
+  }
+
+  byId("formatBtn").addEventListener("click", run);
+
+  byId("copyBtn").addEventListener("click", () => {
+    copyText(lastOutput, "Formatted HTML copied to clipboard.");
+  });
+
+  byId("copyReportBtn").addEventListener("click", () => {
+    copyText(reportAsText(lastIssues), "Check report copied to clipboard.");
+  });
+
+  byId("downloadBtn").addEventListener("click", () => {
+    const text = lastOutput;
+
+    if (!text) {
+      setStatus("Nothing to download.", "err");
+      return;
+    }
+
+    const blob = new Blob([text], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "formatted-email.html";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+    setStatus("formatted-email.html downloaded.", "ok");
+  });
+
+  byId("clearBtn").addEventListener("click", () => {
+    input.value = "";
+    paintOutput("");
+    lastIssues = [];
+    clearReport();
+    updateMeta();
+    setStatus("Cleared.");
+    input.focus();
+  });
+
+  indentSelect.addEventListener("change", () => { if (input.value.trim()) run(); });
+
+  themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+
+  searchBox.addEventListener("input", applyFilters);
+
+  filterBar.addEventListener("click", event => {
+    const chip = event.target.closest(".chip");
+    if (!chip) return;
+
+    levelFilter = chip.dataset.filter;
+    filterBar.querySelectorAll(".chip").forEach(el => el.classList.toggle("on", el === chip));
+    applyFilters();
+  });
+
+  showDetails.addEventListener("change", () => {
+    showDetails.parentElement.classList.toggle("on", showDetails.checked);
+    document.querySelectorAll(".detail-wrap").forEach(el => { el.open = showDetails.checked; });
+  });
+
+  byId("openBtn").addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", () => {
+    loadFile(fileInput.files && fileInput.files[0]);
+    fileInput.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach(name => {
+    input.addEventListener(name, event => {
+      event.preventDefault();
+      input.classList.add("dropping");
+    });
+  });
+
+  ["dragleave", "dragend", "drop"].forEach(name => {
+    input.addEventListener(name, () => input.classList.remove("dropping"));
+  });
+
+  input.addEventListener("drop", event => {
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    if (!file) return;
+    event.preventDefault();
+    loadFile(file);
+  });
+
+  for (const key in toggles) {
+    toggles[key].addEventListener("change", () => {
+      paintToggles();
+      if (input.value.trim()) run();
+    });
+  }
+
+  input.addEventListener("input", updateMeta);
+
+  input.addEventListener("keydown", event => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      run();
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const indent = indentSelect.value === "tab" ? "\t" : " ".repeat(Number(indentSelect.value));
+      input.setRangeText(indent, start, end, "end");
+    }
+  });
+
+  /* Sample input that exercises every check. */
+  input.value = '<html lang=""><head><style>body{margin:0;}.MsoHyperlink{color:#0000ee;}.wrapper{width:600px;width:640px;}.mHide{display:block;}.oldPromo{color:#999999;}@media only screen and (max-width:520px){.wrapper{width:100% !important;}.mHide{display:none !important;}.w100pc{width:100% !important;}}@media only screen and (max-width:520px){.wrapper{width:320px !important;}.mHide{display:none !important;}}@media only screen and (max-width:420px){.w100pc{width:200% !important;}}</style></head><body bgcolor=""><table width="100%" border="0" align="center" class=""><tr><td align="center" style="padding:0;"><table class="wrapper" width="600" border="0" cellpadding="0" style="width:640px;"><tr><td align="center" class="mHide  ghostClass" style="padding:20px;"><a href="https://example.com" target="_blank"><img src="logo.png" width="240" alt="" style="display:block;width:200px;" /></a></td></tr><tr><td align="left" style="padding:0 20px" style="padding:0 24px">Summer  offers are  live <strong>today</strong>. <a href="mailto:hello@example.com">Mail us</a> or <a href="tel:+919000000000">call us</a>, <a href="#">terms</a> and <a href="">privacy</a>.</td></tr><tr><td align="center" class="w100pc"><!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="https://example.com/cta" style="height:44px;width:220px;" arcsize="10%" fillcolor="#e20074"><w:anchorlock/><center style="color:#ffffff;"><![endif]--><a href="https://example.com/cta" class="btn" style="display:block;">Jetzt buchen</a><!--[if mso]></center></v:roundrect><![endif]--></td></tr></table></td></tr></table></body></html>';
+
+  initTheme();
+  paintToggles();
+  updateMeta();
+  run();
+})();
+</script>
+</body>
+</html>
