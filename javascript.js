@@ -1,3 +1,1403 @@
+/* Email HTML Beautifier + Checker engine */
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.EmailTool = factory();
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  const VOID_TAGS = new Set([
+    "area","base","br","col","embed","hr","img","input","link",
+    "meta","param","source","track","wbr"
+  ]);
+
+  /* Inline elements never start a new output line. */
+  const INLINE_TAGS = new Set([
+    "a","abbr","b","bdi","bdo","big","br","cite","code","del","dfn","em","font",
+    "i","img","ins","kbd","mark","nobr","q","s","samp","small","span","strong",
+    "sub","sup","time","tt","u","var","wbr","o:p"
+  ]);
+
+  const RAW_TAGS = new Set(["style","script","pre","textarea"]);
+
+  /* ------------------------------------------------------------------ */
+  /* Tokenizer                                                           */
+  /* ------------------------------------------------------------------ */
+
+  function tokenize(src) {
+    const tokens = [];
+    let i = 0;
+    let line = 1;
+
+    const push = (type, value, extra) => {
+      tokens.push(Object.assign({ type: type, value: value, srcLine: line }, extra || {}));
+      for (let k = 0; k < value.length; k++) if (value[k] === "\n") line++;
+    };
+
+    while (i < src.length) {
+      if (src[i] !== "<") {
+        const next = src.indexOf("<", i);
+        const end = next === -1 ? src.length : next;
+        push("text", src.slice(i, end));
+        i = end;
+        continue;
+      }
+
+      const ahead = src.slice(i, i + 300);
+
+      /* <![endif]-->  /  <!--<![endif]-->  /  <!--[endif]--> */
+      const condClose =
+        /^<!--\s*<!\[endif\]\s*-->/i.exec(ahead) ||
+        /^<!--\s*\[endif\]\s*-->/i.exec(ahead) ||
+        /^<!\s*\[endif\]\s*-->/i.exec(ahead);
+
+      if (condClose) {
+        push("cond-close", condClose[0]);
+        i += condClose[0].length;
+        continue;
+      }
+
+      /* <!--[if mso]>  and downlevel-revealed  <!--[if !mso]><!--> */
+      const condOpen = /^<!--\s*\[if\b[^\]]*\]\s*>/i.exec(ahead);
+      if (condOpen) {
+        let raw = condOpen[0];
+        if (src.slice(i + raw.length).startsWith("<!-->")) raw += "<!-->";
+        push("cond-open", raw);
+        i += raw.length;
+        continue;
+      }
+
+      if (/^<!doctype/i.test(ahead)) {
+        const end = src.indexOf(">", i);
+        const finish = end === -1 ? src.length : end + 1;
+        push("doctype", src.slice(i, finish));
+        i = finish;
+        continue;
+      }
+
+      if (src.startsWith("<!--", i)) {
+        const end = src.indexOf("-->", i);
+        const finish = end === -1 ? src.length : end + 3;
+        push("comment", src.slice(i, finish));
+        i = finish;
+        continue;
+      }
+
+      /* A "<" that cannot start a tag is literal text. */
+      if (!/^<\/?[a-zA-Z!]/.test(ahead)) {
+        push("text", "<");
+        i++;
+        continue;
+      }
+
+      /* Real tag: walk to ">" while respecting quoted values. */
+      const start = i;
+      let quote = null;
+      let j = i + 1;
+
+      for (; j < src.length; j++) {
+        const ch = src[j];
+        if (quote) {
+          if (ch === quote) quote = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (ch === ">") { j++; break; }
+      }
+
+      const raw = src.slice(start, j);
+      i = j;
+
+      const closeMatch = /^<\s*\/\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+      if (closeMatch) {
+        push("close", raw, { name: closeMatch[1].toLowerCase() });
+        continue;
+      }
+
+      const openMatch = /^<\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+      if (!openMatch) {
+        push("text", raw);
+        continue;
+      }
+
+      const name = openMatch[1].toLowerCase();
+      const selfClosing = /\/\s*>$/.test(raw) || VOID_TAGS.has(name);
+      push(selfClosing ? "self" : "open", raw, { name });
+
+      /* Raw content blocks keep their body untouched by the tag walker. */
+      if (!selfClosing && RAW_TAGS.has(name)) {
+        const closeRe = new RegExp("<\\s*/\\s*" + name + "\\s*>", "i");
+        const remainder = src.slice(i);
+        const found = closeRe.exec(remainder);
+        const bodyEnd = found ? i + found.index : src.length;
+        push("raw", src.slice(i, bodyEnd), { name });
+        i = bodyEnd;
+      }
+    }
+
+    return tokens;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tag + attribute helpers                                             */
+  /* ------------------------------------------------------------------ */
+
+  function parseTag(raw) {
+    const m = /^<\s*([a-zA-Z0-9:_.-]+)/.exec(raw);
+    if (!m) return null;
+
+    let rest = raw.slice(m[0].length).replace(/>$/, "");
+    let selfClose = false;
+
+    if (/\/\s*$/.test(rest)) {
+      selfClose = true;
+      rest = rest.replace(/\/\s*$/, "");
+    }
+
+    const attrs = [];
+    const re = /([^\s=\/>"']+)(\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g;
+    let a;
+
+    while ((a = re.exec(rest)) !== null) {
+      if (!a[0].trim()) continue;
+
+      let value = null;
+      let quote = '"';
+
+      if (a[3] !== undefined) { value = a[3]; quote = '"'; }
+      else if (a[4] !== undefined) { value = a[4]; quote = "'"; }
+      else if (a[5] !== undefined) { value = a[5]; quote = ""; }
+
+      attrs.push({ name: a[1], value: value, quote: quote });
+    }
+
+    return { name: m[1], lower: m[1].toLowerCase(), attrs: attrs, selfClose: selfClose };
+  }
+
+  function serializeTag(tag) {
+    const parts = [tag.name];
+
+    for (const a of tag.attrs) {
+      if (a.value === null) parts.push(a.name);
+      else if (a.quote === "") parts.push(a.name + "=" + a.value);
+      else parts.push(a.name + "=" + a.quote + a.value + a.quote);
+    }
+
+    return "<" + parts.join(" ") + (tag.selfClose ? " />" : ">");
+  }
+
+  function getAttr(tag, name) {
+    const lower = name.toLowerCase();
+    return tag.attrs.find(a => a.name.toLowerCase() === lower) || null;
+  }
+
+  function setAttr(tag, name, value) {
+    const found = getAttr(tag, name);
+    if (found) { found.value = value; found.quote = found.quote || '"'; return found; }
+    const attr = { name: name, value: value, quote: '"' };
+    tag.attrs.push(attr);
+    return attr;
+  }
+
+  /* Attributes that must never be stripped when empty — removing them
+     changes behaviour, or an email client wrote them on purpose. */
+  const KEEP_EMPTY = new Set([
+    "alt","href","src","srcset","value","content","name","lang","id","action","for"
+  ]);
+
+  /* Classes injected by email clients themselves. They are never present
+     in the HTML, so "unused" is the wrong conclusion for them. */
+  const PROTECTED_CLASS = [
+    /^mso/i, /^ExternalClass/i, /^ReadMsgBody$/i, /^yshortcuts$/i, /^applelinks?$/i,
+    /^a3s$/i, /^a6S$/i, /^adL$/i, /^ii$/i, /^im$/i, /^gmail/i, /^m_-?\d/, /^x_/,
+    /^moz-/i, /^ios-/i, /^yiv\d/i, /^outlook/i, /^ymail/i, /^apple-/i, /^Singleton$/i
+  ];
+
+  function isProtectedClass(name) {
+    return PROTECTED_CLASS.some(re => re.test(name));
+  }
+
+  /* Structural attributes read better before a long style attribute. */
+  function insertAttrBeforeStyle(tag, name, value) {
+    const existing = getAttr(tag, name);
+    if (existing) { existing.value = value; existing.quote = existing.quote || '"'; return existing; }
+
+    const attr = { name: name, value: value, quote: '"' };
+    const styleIndex = tag.attrs.findIndex(a => a.name.toLowerCase() === "style");
+
+    if (styleIndex === -1) tag.attrs.push(attr);
+    else tag.attrs.splice(styleIndex, 0, attr);
+
+    return attr;
+  }
+
+  /* Split on a separator while ignoring quotes and parentheses. */
+  function safeSplit(text, sep) {
+    const out = [];
+    let buf = "";
+    let depth = 0;
+    let quote = null;
+
+    for (const ch of text) {
+      if (quote) { buf += ch; if (ch === quote) quote = null; continue; }
+      if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+      if (ch === "(") depth++;
+      if (ch === ")") depth = Math.max(0, depth - 1);
+      if (ch === sep && depth === 0) { out.push(buf); buf = ""; continue; }
+      buf += ch;
+    }
+
+    out.push(buf);
+    return out.map(s => s.trim()).filter(Boolean);
+  }
+
+  function parseStyleAttr(value) {
+    return safeSplit(value || "", ";").map(decl => {
+      const idx = decl.indexOf(":");
+      if (idx === -1) return { prop: decl.trim(), value: "", bare: true };
+      return {
+        prop: decl.slice(0, idx).trim(),
+        value: decl.slice(idx + 1).trim(),
+        bare: false
+      };
+    });
+  }
+
+  function serializeStyleAttr(list) {
+    if (!list.length) return "";
+    return list.map(d => (d.bare ? d.prop : d.prop + ":" + d.value)).join(";") + ";";
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* CSS parser (structure preserving enough for our checks)             */
+  /* ------------------------------------------------------------------ */
+
+  function parseCss(src) {
+    const nodes = [];
+    let i = 0;
+
+    while (i < src.length) {
+      while (i < src.length && /\s/.test(src[i])) i++;
+      if (i >= src.length) break;
+
+      if (src.startsWith("/*", i)) {
+        const end = src.indexOf("*/", i);
+        const finish = end === -1 ? src.length : end + 2;
+        nodes.push({ type: "comment", text: src.slice(i, finish) });
+        i = finish;
+        continue;
+      }
+
+      const open = src.indexOf("{", i);
+      const semi = src.indexOf(";", i);
+
+      if (open === -1 || (semi !== -1 && semi < open)) {
+        const end = semi === -1 ? src.length : semi;
+        const text = src.slice(i, end).trim();
+        if (text) nodes.push({ type: "statement", text: text });
+        i = end + 1;
+        continue;
+      }
+
+      const prelude = src.slice(i, open).trim();
+      let depth = 1;
+      let j = open + 1;
+      let quote = null;
+
+      for (; j < src.length; j++) {
+        const ch = src[j];
+        if (quote) { if (ch === quote && src[j - 1] !== "\\") quote = null; continue; }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") { depth--; if (depth === 0) break; }
+      }
+
+      const body = src.slice(open + 1, Math.min(j, src.length));
+
+      if (/^@/.test(prelude) && /\{/.test(body)) {
+        nodes.push({ type: "at", prelude: prelude, children: parseCss(body) });
+      } else {
+        nodes.push({ type: "rule", selector: prelude, decls: parseDecls(body) });
+      }
+
+      i = j + 1;
+    }
+
+    return nodes;
+  }
+
+  function parseDecls(body) {
+    return safeSplit(body, ";").map(decl => {
+      const idx = decl.indexOf(":");
+      if (idx === -1) return { prop: decl.trim(), value: "", bare: true };
+      return {
+        prop: decl.slice(0, idx).trim(),
+        value: decl.slice(idx + 1).trim().replace(/\s+/g, " "),
+        bare: false
+      };
+    }).filter(d => d.prop);
+  }
+
+  function declsText(decls) {
+    return decls.map(d => (d.bare ? d.prop : d.prop + ": " + d.value + ";")).join(" ");
+  }
+
+  function declsKey(decls) {
+    return decls
+      .map(d => (d.bare ? d.prop : d.prop.toLowerCase() + ":" + d.value.replace(/\s+/g, " ")))
+      .sort()
+      .join("|");
+  }
+
+  function serializeCssInto(nodes, level, indentUnit, out) {
+    const pad = indentUnit.repeat(level);
+
+    for (const node of nodes) {
+      node.outLine = out.length;
+
+      if (node.type === "comment") { out.push(pad + node.text); continue; }
+      if (node.type === "statement") { out.push(pad + node.text + ";"); continue; }
+
+      if (node.type === "at") {
+        out.push(pad + node.prelude + " {");
+        serializeCssInto(node.children, level + 1, indentUnit, out);
+        out.push(pad + "}");
+        continue;
+      }
+
+      const body = declsText(node.decls);
+      out.push(pad + node.selector + " {" + (body ? body + " " : "") + "}");
+    }
+
+    return out;
+  }
+
+  function collectSelectorClasses(selector) {
+    const found = [];
+    const re = /\.(-?[_a-zA-Z][\w-]*)/g;
+    let m;
+    while ((m = re.exec(selector)) !== null) found.push(m[1]);
+    return found;
+  }
+
+  /* Duplicate declarations in one block: the cascade keeps the last one,
+     unless an earlier one is marked !important. */
+  function dedupeDecls(list) {
+    const wins = new Map();
+
+    list.forEach((decl, index) => {
+      if (decl.bare) return;
+
+      const key = decl.prop.toLowerCase();
+      const important = /!important/i.test(decl.value);
+      const current = wins.get(key);
+
+      if (!current) { wins.set(key, { index: index, important: important }); return; }
+      if (current.important && !important) return;
+
+      wins.set(key, { index: index, important: important });
+    });
+
+    const dropped = [];
+    const kept = [];
+
+    list.forEach((decl, index) => {
+      if (decl.bare) { kept.push(decl); return; }
+
+      const win = wins.get(decl.prop.toLowerCase());
+      if (win.index === index) { kept.push(decl); return; }
+
+      dropped.push({ prop: decl.prop, value: decl.value, winner: list[win.index].value });
+    });
+
+    return { list: kept, dropped: dropped };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Checks and fixes                                                    */
+  /* ------------------------------------------------------------------ */
+
+  function normalizeLength(value) {
+    const v = String(value == null ? "" : value).trim().toLowerCase();
+    if (!v) return null;
+    if (/^\d+(\.\d+)?$/.test(v)) return v.replace(/\.0+$/, "") + "px";
+    if (/^\d+(\.\d+)?%$/.test(v)) return v.replace(/\.0+%/, "%");
+    if (/^\d+(\.\d+)?px$/.test(v)) return v.replace(/\.0+px/, "px");
+    return null;
+  }
+
+  function styleLength(decls, prop) {
+    for (let k = decls.length - 1; k >= 0; k--) {
+      if (decls[k].prop.toLowerCase() === prop) return decls[k];
+    }
+    return null;
+  }
+
+  function normalizeMedia(prelude) {
+    return prelude
+      .toLowerCase()
+      .replace(/\s*only\s+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\s*([(),:])\s*/g, "$1")
+      .trim();
+  }
+
+  /* Merge tags, anchors and non-http schemes are not broken links. */
+  function isRelativeUrl(value) {
+    const v = String(value == null ? "" : value).trim();
+    if (!v) return false;
+
+    if (/^(https?:)?\/\//i.test(v)) return false;
+    if (/^(mailto|tel|sms|data|cid|javascript|webcal|ftp):/i.test(v)) return false;
+    if (v.charAt(0) === "#") return false;
+
+    /* ESP placeholders: {{ }}, %% %%, *| |*, ${ }, [[ ]], <% %> */
+    if (/[{}%$\[\]<>|]/.test(v)) return false;
+
+    return true;
+  }
+
+  function shortCondition(prelude) {
+    return prelude
+      .replace(/^@media\s*/i, "")
+      .replace(/\bonly\s+/i, "")
+      .replace(/\bscreen\s+and\s+/i, "")
+      .replace(/\bscreen\b/i, "")
+      .replace(/\s+/g, " ")
+      .trim() || "@media";
+  }
+
+  function normalizeSelector(sel) {
+    return safeSplit(sel, ",").join(", ").replace(/\s+/g, " ").trim();
+  }
+
+  function process(source, options) {
+    const opts = Object.assign({
+      indent: "  ",
+      autofix: true,
+      tableAttrs: true,
+      requireBorder: true,
+      widthSync: true,
+      heightSync: false,
+      forceWidthFix: false,
+      mediaSync: true,
+      crossMedia: true,
+      emptyAttrs: true,
+      duplicateProps: true,
+      bestPractice: true,
+      expandConditionals: true,
+      unusedClasses: true
+    }, options || {});
+
+    const issues = [];
+
+    const stats = {
+      tags: 0,
+      tables: 0,
+      images: 0,
+      conditionals: 0,
+      mediaBlocks: 0,
+      breakpoints: 0,
+      links: {
+        total: 0,
+        linked: 0,
+        notLinked: 0,
+        mailto: 0,
+        tel: 0,
+        anchor: 0,
+        relative: 0,
+        mergeTag: 0,
+        missing: 0,
+        empty: 0,
+        placeholder: 0
+      }
+    };
+    const addIssue = (rule, level, message, detail, fixed, where) => {
+      issues.push({
+        rule: rule,
+        level: level,
+        message: message,
+        detail: detail || "",
+        fixed: !!fixed,
+        line: 0,
+        at: where || null
+      });
+    };
+
+    const src = String(source || "").replace(/\r\n?/g, "\n").trim();
+    if (!src) return { html: "", issues: issues };
+
+    const tokens = tokenize(src);
+
+    /* ---------- pass 1: tag level checks ---------- */
+    const usedClasses = new Map();   // class -> count
+    const classTokens = [];          // tokens carrying a class attribute
+    const missingTableAttrs = new Map();
+
+    for (const token of tokens) {
+      if (token.type !== "open" && token.type !== "self") continue;
+
+      const tag = parseTag(token.value);
+      if (!tag) continue;
+
+      let changed = false;
+      const label = token.value.slice(0, 70).replace(/\s+/g, " ");
+      const isNamespaced = /:/.test(tag.lower);
+
+      /* --- inventory --- */
+      stats.tags++;
+      if (tag.lower === "table") stats.tables++;
+      if (tag.lower === "img") stats.images++;
+
+      if (tag.lower === "a") {
+        const hrefAttr = getAttr(tag, "href");
+        const raw = hrefAttr && hrefAttr.value !== null ? hrefAttr.value.trim() : null;
+        const links = stats.links;
+
+        links.total++;
+
+        if (raw === null) { links.missing++; links.notLinked++; }
+        else if (raw === "") { links.empty++; links.notLinked++; }
+        else if (raw === "#") { links.placeholder++; links.notLinked++; }
+        else if (/^mailto:/i.test(raw)) { links.mailto++; links.linked++; }
+        else if (/^(tel|sms|callto):/i.test(raw)) { links.tel++; links.linked++; }
+        else if (raw.charAt(0) === "#") { links.anchor++; links.notLinked++; }
+        else if (/^(https?:)?\/\//i.test(raw)) { links.linked++; }
+        else if (/[{}%$\[\]<>|]/.test(raw)) { links.mergeTag++; links.linked++; }
+        else { links.relative++; links.notLinked++; }
+      }
+
+      /* --- duplicate attributes --- */
+      const seen = new Map();
+
+      for (let k = 0; k < tag.attrs.length; k++) {
+        const lower = tag.attrs[k].name.toLowerCase();
+        if (!seen.has(lower)) { seen.set(lower, k); continue; }
+
+        const first = tag.attrs[seen.get(lower)];
+        const dupe = tag.attrs[k];
+
+        if (opts.autofix) {
+          tag.attrs.splice(k, 1);
+          k--;
+          changed = true;
+          addIssue("attributes", "fix", "Removed duplicate " + lower + " attribute — the first one wins in every client", '<' + tag.lower + '> kept "' + first.value + '", dropped "' + dupe.value + '"', true, token);
+        } else {
+          addIssue("attributes", "error", "Duplicate " + lower + " attribute on <" + tag.lower + ">", 'kept "' + first.value + '" / dropped "' + dupe.value + '"', false, token);
+        }
+      }
+
+      /* --- every empty attribute --- */
+      if (opts.emptyAttrs) {
+        for (let k = tag.attrs.length - 1; k >= 0; k--) {
+          const a = tag.attrs[k];
+          const lower = a.name.toLowerCase();
+          if (a.value === null || a.value.trim() !== "") continue;
+
+          if (lower === "alt") {
+            addIssue("empty-attr", "info", 'alt="" kept — correct for a spacer or decorative image', "<" + tag.lower + "> — " + label, false, token);
+            continue;
+          }
+
+          if (lower === "href") continue;
+
+          if (KEEP_EMPTY.has(lower) || /^(data|aria)-/.test(lower)) {
+            addIssue("empty-attr", "warn", 'Empty ' + lower + '="" kept — check whether it should carry a value', "<" + tag.lower + "> — " + label, false, token);
+            continue;
+          }
+
+          if (opts.autofix) {
+            tag.attrs.splice(k, 1);
+            changed = true;
+            addIssue("empty-attr", "fix", 'Removed empty ' + lower + '=""', "<" + tag.lower + "> — " + label, true, token);
+          } else {
+            addIssue("empty-attr", "warn", 'Empty ' + lower + '="" found', "<" + tag.lower + "> — " + label, false, token);
+          }
+        }
+      }
+
+      /* --- duplicate properties inside a style attribute --- */
+      if (opts.duplicateProps) {
+        const styleAttr = getAttr(tag, "style");
+
+        if (styleAttr && styleAttr.value) {
+          const parsed = parseStyleAttr(styleAttr.value);
+          const result = dedupeDecls(parsed);
+
+          result.dropped.forEach(entry => {
+            if (opts.autofix) {
+              addIssue("duplicate-prop", "fix", 'Removed duplicate "' + entry.prop + '" from a style attribute', "<" + tag.lower + '> kept "' + entry.winner + '", dropped "' + entry.value + '"', true, token);
+            } else {
+              addIssue("duplicate-prop", "error", 'Property "' + entry.prop + '" is declared twice in a style attribute', "<" + tag.lower + '> "' + entry.winner + '" vs "' + entry.value + '"', false, token);
+            }
+          });
+
+          if (result.dropped.length && opts.autofix) {
+            styleAttr.value = serializeStyleAttr(result.list);
+            changed = true;
+          }
+        }
+      }
+
+      /* --- placeholder links: report, never touch --- */
+      if (tag.lower === "a") {
+        const href = getAttr(tag, "href");
+
+        if (href && href.value !== null) {
+          const value = href.value.trim();
+          if (value === "" || value === "#") {
+            addIssue("links", "warn", 'Link has href="' + value + '" — placeholder, left untouched', label, false, token);
+          }
+        } else if (!href) {
+          addIssue("links", "warn", "Link has no href attribute", label, false, token);
+        }
+      }
+
+      /* --- email build practice --- */
+      if (opts.bestPractice) {
+        if (tag.lower === "img") {
+          if (!getAttr(tag, "alt")) {
+            addIssue("practice", "warn", "Image has no alt attribute — add real alt text, or alt=\"\" if it is decorative", label, false, token);
+          }
+
+          const imgStyle = parseStyleAttr((getAttr(tag, "style") || {}).value || "");
+
+          if (!imgStyle.some(d => d.prop.toLowerCase() === "display")) {
+            addIssue("practice", "warn", "Image style has no display — Outlook and Gmail can leave a gap under it. display:block is the usual fix", label, false, token);
+          }
+
+          const src = getAttr(tag, "src");
+
+          if (src && isRelativeUrl(src.value)) {
+            addIssue("practice", "warn", "Image src is a relative path — mail clients cannot resolve it, use a full https:// URL", 'src="' + src.value + '"', false, token);
+          }
+        }
+
+        if (tag.lower === "a") {
+          const target = getAttr(tag, "href");
+
+          if (target && isRelativeUrl(target.value)) {
+            addIssue("practice", "warn", "Link href is a relative path — use a full https:// URL", 'href="' + target.value + '"', false, token);
+          }
+        }
+      }
+
+      /* --- double spaces inside class values --- */
+      const classCheck = getAttr(tag, "class");
+
+      if (classCheck && classCheck.value && /\s{2,}/.test(classCheck.value.trim())) {
+        if (opts.autofix) {
+          classCheck.value = classCheck.value.trim().replace(/\s+/g, " ");
+          changed = true;
+          addIssue("spacing", "fix", "Collapsed extra spaces inside a class attribute", "<" + tag.lower + '> class="' + classCheck.value + '"', true, token);
+        } else {
+          addIssue("spacing", "warn", "Extra spaces inside a class attribute", "<" + tag.lower + "> — " + label, false, token);
+        }
+      }
+
+      /* --- table attributes --- */
+      if (opts.tableAttrs && tag.lower === "table") {
+        const required = [["cellpadding", "0"], ["cellspacing", "0"], ["role", "presentation"]];
+        if (opts.requireBorder) required.unshift(["border", "0"]);
+
+        for (const [name, expected] of required) {
+          const attr = getAttr(tag, name);
+
+          if (!attr || attr.value === null || attr.value.trim() === "") {
+            if (opts.autofix) {
+              insertAttrBeforeStyle(tag, name, expected);
+              changed = true;
+              const list = missingTableAttrs.get(name) || 0;
+              missingTableAttrs.set(name, list + 1);
+              addIssue("table-attrs", "fix", 'Added ' + name + '="' + expected + '" to <table>', label, true, token);
+            } else {
+              addIssue("table-attrs", "warn", 'Missing ' + name + '="' + expected + '" on <table>', label, false, token);
+            }
+          } else if (attr.value.trim().toLowerCase() !== expected) {
+            addIssue(
+              "table-attrs",
+              "warn",
+              name + '="' + attr.value + '" is not "' + expected + '" — left as is, check it is intentional',
+              label,
+              false,
+              token
+            );
+          }
+        }
+      }
+
+      /* --- width / height attribute vs style --- */
+      const dims = [];
+      if (opts.widthSync) dims.push("width");
+      if (opts.heightSync) dims.push("height");
+
+      if (dims.length && !isNamespaced) {
+        for (const dim of dims) {
+          const attr = getAttr(tag, dim);
+          if (!attr || attr.value === null || attr.value.trim() === "") continue;
+
+          const wanted = normalizeLength(attr.value);
+          if (!wanted) continue;
+
+          const styleAttr = getAttr(tag, "style");
+          const decls = parseStyleAttr(styleAttr ? styleAttr.value : "");
+          const decl = styleLength(decls, dim);
+
+          if (!decl) {
+            if (opts.autofix) {
+              decls.push({ prop: dim, value: wanted, bare: false });
+              if (styleAttr) styleAttr.value = serializeStyleAttr(decls);
+              else setAttr(tag, "style", serializeStyleAttr(decls));
+              changed = true;
+              addIssue("dimension-sync", "fix", 'Added ' + dim + ":" + wanted + " to style (matches " + dim + '="' + attr.value + '")', "<" + tag.lower + "> — " + label, true, token);
+            } else {
+              addIssue("dimension-sync", "warn", dim + '="' + attr.value + '" has no matching ' + dim + " in style", "<" + tag.lower + "> — " + label, false, token);
+            }
+            continue;
+          }
+
+          const important = /!important/i.test(decl.value);
+          const current = normalizeLength(decl.value.replace(/!important/i, "").trim());
+
+          if (current === wanted) continue;
+
+          const fluid = current && current.endsWith("%") && wanted.endsWith("px");
+
+          if (fluid && !opts.forceWidthFix) {
+            addIssue(
+              "dimension-sync",
+              "warn",
+              dim + '="' + attr.value + '" vs style ' + dim + ":" + decl.value + " — fluid pattern, not changed. Turn on \"Force px/% fixes\" to override",
+              "<" + tag.lower + "> — " + label,
+              false,
+              token
+            );
+            continue;
+          }
+
+          if (opts.autofix) {
+            const before = decl.value;
+            decl.value = wanted + (important ? " !important" : "");
+            const styleRef = getAttr(tag, "style");
+            styleRef.value = serializeStyleAttr(decls);
+            changed = true;
+            addIssue("dimension-sync", "fix", dim + " mismatch fixed: style " + dim + ":" + before + " → " + decl.value + ' (attribute ' + dim + '="' + attr.value + '" wins)', "<" + tag.lower + "> — " + label, true, token);
+          } else {
+            addIssue("dimension-sync", "error", dim + ' mismatch: attribute "' + attr.value + '" vs style "' + decl.value + '"', "<" + tag.lower + "> — " + label, false, token);
+          }
+        }
+      }
+
+      if (changed) token.value = serializeTag(tag);
+
+      const classAttr = getAttr(tag, "class");
+      if (classAttr && classAttr.value) {
+        classTokens.push(token);
+        for (const cls of classAttr.value.split(/\s+/).filter(Boolean)) {
+          usedClasses.set(cls, (usedClasses.get(cls) || 0) + 1);
+        }
+      }
+    }
+
+    for (const token of tokens) if (token.type === "cond-open") stats.conditionals++;
+
+    /* --- double spaces between words in visible content --- */
+    for (const token of tokens) {
+      if (token.type !== "text") continue;
+
+      const match = /(\S[^\S\n]{2,}\S)/.exec(token.value);
+      if (!match) continue;
+
+      const at = Math.max(0, match.index - 25);
+      const snippet = token.value.slice(at, match.index + match[0].length + 25).replace(/\n/g, " ").trim();
+
+      addIssue(
+        "spacing",
+        opts.autofix ? "fix" : "warn",
+        opts.autofix ? "Collapsed a double space in the text content" : "Double space in the text content",
+        snippet,
+        opts.autofix,
+        token
+      );
+    }
+
+    /* Commented-out markup still counts as usage — never delete its CSS. */
+    for (const token of tokens) {
+      if (token.type !== "comment") continue;
+      const re = /class\s*=\s*("([^"]*)"|'([^']*)')/gi;
+      let m;
+      while ((m = re.exec(token.value)) !== null) {
+        const list = (m[2] !== undefined ? m[2] : m[3] || "").split(/\s+/).filter(Boolean);
+        for (const cls of list) usedClasses.set(cls, (usedClasses.get(cls) || 0) + 1);
+      }
+    }
+
+    /* ---------- pass 2: CSS ---------- */
+    const cssTokens = tokens.filter(t => t.type === "raw" && t.name === "style");
+    const cssTrees = cssTokens.map(t => parseCss(t.value));
+    const definedClasses = new Set();
+
+    const walkRules = (nodes, fn) => {
+      for (const node of nodes) {
+        if (node.type === "rule") fn(node, nodes);
+        else if (node.type === "at") walkRules(node.children, fn);
+      }
+    };
+
+    for (const tree of cssTrees) {
+      walkRules(tree, rule => {
+        for (const cls of collectSelectorClasses(rule.selector)) definedClasses.add(cls);
+      });
+    }
+
+    /* --- duplicate properties inside stylesheet rules --- */
+    if (opts.duplicateProps) {
+      cssTrees.forEach((tree, treeIndex) => {
+        walkRules(tree, rule => {
+          const result = dedupeDecls(rule.decls);
+          if (!result.dropped.length) return;
+
+          const where = { node: rule, styleToken: cssTokens[treeIndex] };
+
+          result.dropped.forEach(entry => {
+            if (opts.autofix) {
+              addIssue("duplicate-prop", "fix", 'Removed duplicate "' + entry.prop + '" from ' + rule.selector, 'kept "' + entry.winner + '", dropped "' + entry.value + '"', true, where);
+            } else {
+              addIssue("duplicate-prop", "error", 'Property "' + entry.prop + '" is declared twice in ' + rule.selector, '"' + entry.winner + '" vs "' + entry.value + '"', false, where);
+            }
+          });
+
+          if (opts.autofix) rule.decls = result.list;
+        });
+      });
+    }
+
+    /* --- unused classes --- */
+    if (opts.unusedClasses) {
+      const unusedInCss = new Set();
+      const keptClientClasses = new Set();
+
+      for (const tree of cssTrees) {
+        const prune = nodes => {
+          for (let k = nodes.length - 1; k >= 0; k--) {
+            const node = nodes[k];
+
+            if (node.type === "at") { prune(node.children); continue; }
+            if (node.type !== "rule") continue;
+
+            const parts = safeSplit(node.selector, ",");
+            const keep = [];
+
+            for (const part of parts) {
+              const classes = collectSelectorClasses(part);
+              const client = classes.filter(isProtectedClass);
+              const dead = classes.filter(c => !usedClasses.has(c) && !isProtectedClass(c));
+
+              if (client.length) client.forEach(c => keptClientClasses.add(c));
+
+              if (classes.length && dead.length && !client.length) {
+                dead.forEach(c => unusedInCss.add(c));
+                if (!opts.autofix) keep.push(part);
+              } else {
+                keep.push(part);
+              }
+            }
+
+            if (opts.autofix && keep.length === 0) nodes.splice(k, 1);
+            else if (opts.autofix && keep.length !== parts.length) node.selector = keep.join(", ");
+          }
+        };
+        prune(tree);
+      }
+
+      if (keptClientClasses.size) {
+        addIssue(
+          "unused-class",
+          "info",
+          "Kept " + keptClientClasses.size + " email-client class" + (keptClientClasses.size === 1 ? "" : "es") + " that the client adds at render time",
+          Array.from(keptClientClasses).map(c => "." + c).join(", "),
+          false
+        );
+      }
+
+      for (const cls of unusedInCss) {
+        addIssue(
+          "unused-class",
+          opts.autofix ? "fix" : "warn",
+          (opts.autofix ? "Removed CSS rule for ." : "CSS class .") + cls + (opts.autofix ? " — not used anywhere in the HTML" : " is never used in the HTML"),
+          "",
+          opts.autofix
+        );
+      }
+
+      /* classes used in HTML but defined nowhere */
+      const orphan = new Map();
+
+      if (!cssTrees.length && classTokens.length) {
+        addIssue(
+          "unused-class",
+          "info",
+          "No <style> block in this HTML, so classes on tags were left alone",
+          "Rules may live in an external or parent template",
+          false
+        );
+      }
+
+      for (const token of (cssTrees.length ? classTokens : [])) {
+        const tag = parseTag(token.value);
+        if (!tag) continue;
+
+        const classAttr = getAttr(tag, "class");
+        if (!classAttr || !classAttr.value) continue;
+
+        const list = classAttr.value.split(/\s+/).filter(Boolean);
+        const keep = list.filter(c => definedClasses.has(c) || isProtectedClass(c));
+        const dropped = list.filter(c => !definedClasses.has(c) && !isProtectedClass(c));
+
+        if (!dropped.length) continue;
+
+        dropped.forEach(c => {
+          orphan.set(c, (orphan.get(c) || 0) + 1);
+          addIssue(
+            "unused-class",
+            opts.autofix ? "fix" : "warn",
+            (opts.autofix ? 'Removed class="' : 'Class "') + c + '" — no matching CSS rule',
+            "<" + tag.lower + ">",
+            opts.autofix,
+            token
+          );
+        });
+
+        if (!opts.autofix) continue;
+
+        if (keep.length) classAttr.value = keep.join(" ");
+        else tag.attrs.splice(tag.attrs.indexOf(classAttr), 1);
+
+        token.value = serializeTag(tag);
+      }
+
+
+    }
+
+    /* --- media queries, compared across every <style> block --- */
+    const mediaBlocks = [];
+
+    cssTrees.forEach((tree, treeIndex) => {
+      tree.forEach(node => {
+        if (node.type === "at" && /^@media/i.test(node.prelude)) {
+          mediaBlocks.push({ block: node, styleToken: cssTokens[treeIndex] });
+        }
+      });
+    });
+
+    stats.mediaBlocks = mediaBlocks.length;
+
+    if (opts.mediaSync && mediaBlocks.length) {
+      if (mediaBlocks.length === 1) {
+        addIssue(
+          "media-sync",
+          "info",
+          "Only one @media block in the whole document — nothing to compare it against",
+          mediaBlocks[0].block.prelude,
+          false,
+          { node: mediaBlocks[0].block, styleToken: mediaBlocks[0].styleToken }
+        );
+      }
+
+      const groups = new Map();
+
+      mediaBlocks.forEach(entry => {
+        const key = normalizeMedia(entry.block.prelude);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(entry);
+      });
+
+      stats.breakpoints = groups.size;
+
+      /* Blocks that share a breakpoint must end up identical. */
+      for (const group of groups.values()) {
+        if (group.length < 2) continue;
+
+        const reference = new Map();
+        const order = [];
+
+        group.forEach((entry, blockIndex) => {
+          for (const child of entry.block.children) {
+            if (child.type !== "rule") continue;
+
+            const sel = normalizeSelector(child.selector);
+
+            if (!reference.has(sel)) {
+              reference.set(sel, { decls: child.decls, blockIndex: blockIndex });
+              order.push(sel);
+              continue;
+            }
+
+            const ref = reference.get(sel);
+            if (declsKey(ref.decls) === declsKey(child.decls)) continue;
+
+            const before = declsText(child.decls);
+            const after = declsText(ref.decls);
+
+            if (opts.autofix) {
+              child.decls = ref.decls.map(d => Object.assign({}, d));
+              addIssue(
+                "media-sync",
+                "fix",
+                "Aligned " + sel + " in media block " + (blockIndex + 1) + " to block " + (ref.blockIndex + 1),
+                before + "   →   " + after,
+                true,
+                { node: child, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "media-sync",
+                "error",
+                sel + " has different values in media block " + (ref.blockIndex + 1) + " and " + (blockIndex + 1),
+                after + "   vs   " + before,
+                false,
+                { node: child, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+
+        group.forEach((entry, blockIndex) => {
+          const present = new Set(
+            entry.block.children.filter(c => c.type === "rule").map(c => normalizeSelector(c.selector))
+          );
+
+          for (const sel of order) {
+            if (present.has(sel)) continue;
+
+            const ref = reference.get(sel);
+
+            if (opts.autofix) {
+              const copy = {
+                type: "rule",
+                selector: sel,
+                decls: ref.decls.map(d => Object.assign({}, d))
+              };
+              entry.block.children.push(copy);
+              addIssue(
+                "media-sync",
+                "fix",
+                "Added " + sel + " to media block " + (blockIndex + 1) + " (copied from block " + (ref.blockIndex + 1) + ")",
+                shortCondition(entry.block.prelude),
+                true,
+                { node: copy, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "media-sync",
+                "warn",
+                sel + " is missing from media block " + (blockIndex + 1),
+                shortCondition(entry.block.prelude),
+                false,
+                { node: entry.block, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+      }
+
+      /* Same class, different breakpoint, different value. */
+      if (opts.crossMedia && groups.size > 1) {
+        addIssue(
+          "cross-media",
+          "info",
+          groups.size + " breakpoints found — shared classes were compared across them",
+          Array.from(groups.keys()).map(k => shortCondition("@media " + k)).join("   |   "),
+          false
+        );
+
+        const firstSeen = new Map();
+
+        mediaBlocks.forEach(entry => {
+          const cond = normalizeMedia(entry.block.prelude);
+
+          for (const child of entry.block.children) {
+            if (child.type !== "rule") continue;
+
+            const sel = normalizeSelector(child.selector);
+
+            if (!firstSeen.has(sel)) {
+              firstSeen.set(sel, { rule: child, cond: cond, prelude: entry.block.prelude });
+              continue;
+            }
+
+            const ref = firstSeen.get(sel);
+
+            /* Blocks that share a condition were handled above. */
+            if (ref.cond === cond) continue;
+            if (declsKey(ref.rule.decls) === declsKey(child.decls)) continue;
+
+            const before = declsText(child.decls);
+            const after = declsText(ref.rule.decls);
+            const here = shortCondition(entry.block.prelude);
+            const there = shortCondition(ref.prelude);
+
+            if (opts.autofix) {
+              child.decls = ref.rule.decls.map(d => Object.assign({}, d));
+              addIssue(
+                "cross-media",
+                "fix",
+                "Aligned " + sel + " at " + here + " to the first breakpoint " + there,
+                before + "   →   " + after,
+                true,
+                { node: child, styleToken: entry.styleToken }
+              );
+            } else {
+              addIssue(
+                "cross-media",
+                "error",
+                sel + " differs between " + there + " and " + here,
+                there + " " + after + "   vs   " + here + " " + before,
+                false,
+                { node: child, styleToken: entry.styleToken }
+              );
+            }
+          }
+        });
+      }
+    }
+    /* ---------- format ---------- */
+    const html = render(tokens, cssTokens, cssTrees, opts, addIssue);
+
+    /* Line numbers refer to the formatted output the person is reading. */
+    issues.forEach(issue => {
+      const at = issue.at;
+      issue.at = null;
+      if (!at) return;
+
+      if (at.type === "raw" || at.srcLine !== undefined) {
+        if (at.outLine) issue.line = at.outLine;
+        return;
+      }
+
+      if (at.node && at.styleToken && at.styleToken.outBase !== undefined && at.node.outLine !== undefined) {
+        issue.line = at.styleToken.outBase + at.node.outLine + 1;
+      }
+    });
+
+    return { html: html, issues: issues, stats: stats };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Renderer                                                            */
+  /* ------------------------------------------------------------------ */
+
+  function render(tokens, cssTokens, cssTrees, opts, addIssue) {
+    const indentUnit = opts.indent;
+    const lines = [];
+    const stack = [];
+    let level = 0;
+    let inline = "";
+    let pending = [];
+
+    const pad = () => indentUnit.repeat(level);
+    const top = () => (stack.length ? stack[stack.length - 1] : null);
+
+    /* Conditional comments that only wrap inline content stay on one line. */
+    /* With expandConditionals on (the default) every conditional comment
+       gets its own lines, which is how Outlook VML blocks are normally
+       read. Off, a conditional wrapping only inline content stays inline. */
+    const inlineCond = new Array(tokens.length).fill(false);
+    (function markConditionals() {
+      if (opts.expandConditionals) return;
+      const open = [];
+      tokens.forEach((token, index) => {
+        if (token.type === "cond-open") { open.push({ index: index, inline: true }); return; }
+
+        if (token.type === "cond-close") {
+          const start = open.pop();
+          if (!start) return;
+          inlineCond[start.index] = start.inline;
+          inlineCond[index] = start.inline;
+          return;
+        }
+
+        if (!open.length) return;
+
+        const blocky =
+          (token.type === "open" || token.type === "close" || token.type === "self") &&
+          !INLINE_TAGS.has(token.name);
+
+        if (blocky || token.type === "comment" || token.type === "raw") {
+          open.forEach(entry => { entry.inline = false; });
+        }
+      });
+    })();
+
+    function flushInline() {
+      const text = inline.replace(/[ \t]+/g, " ").trim();
+      const carried = pending;
+      inline = "";
+      pending = [];
+
+      if (!text) return;
+
+      const frame = top();
+      let target;
+
+      if (frame && frame.lineIndex === lines.length - 1 && !frame.blockChild) {
+        lines[frame.lineIndex] += text;
+        target = frame.lineIndex;
+      } else {
+        lines.push(pad() + text);
+        target = lines.length - 1;
+      }
+
+      carried.forEach(token => { token.outLine = target + 1; });
+    }
+
+    function markParentBlock() {
+      const frame = top();
+      if (frame) frame.blockChild = true;
+    }
+
+    function pushLine(text) {
+      lines.push(pad() + text);
+      return lines.length - 1;
+    }
+
+    tokens.forEach((token, index) => {
+      const type = token.type;
+
+      if (type === "text") {
+        const text = token.value.replace(/\s+/g, " ");
+        if (!text.trim()) {
+          if (inline) inline += " ";
+          return;
+        }
+        inline += inline ? text : text.replace(/^\s+/, "");
+        pending.push(token);
+        return;
+      }
+
+      if (type === "cond-open") {
+        if (inlineCond[index]) { inline += token.value.trim(); pending.push(token); return; }
+        flushInline();
+        markParentBlock();
+        token.outLine = pushLine(token.value.trim()) + 1;
+        stack.push({ type: "cond", level: level, lineIndex: lines.length - 1, blockChild: true });
+        level++;
+        return;
+      }
+
+      if (type === "cond-close") {
+        if (inlineCond[index]) { inline += token.value.trim(); pending.push(token); return; }
+        flushInline();
+
+        let frame = null;
+        for (let k = stack.length - 1; k >= 0; k--) {
+          if (stack[k].type === "cond") { frame = stack[k]; stack.length = k; break; }
+        }
+
+        level = frame ? frame.level : Math.max(0, level - 1);
+        token.outLine = pushLine(token.value.trim()) + 1;
+        markParentBlock();
+        return;
+      }
+
+      if (type === "doctype" || type === "comment") {
+        flushInline();
+        markParentBlock();
+        token.outLine = pushLine(token.value.trim()) + 1;
+        return;
+      }
+
+      if (type === "raw") {
+        const cssIndex = cssTokens.indexOf(token);
+        markParentBlock();
+
+        if (cssIndex !== -1) {
+          token.outBase = lines.length;
+          token.outLine = lines.length + 1;
+          serializeCssInto(cssTrees[cssIndex], level, indentUnit, []).forEach(row => lines.push(row));
+          return;
+        }
+
+        const body = token.value.replace(/^\n+|\s+$/g, "");
+        if (!body.trim()) return;
+        body.split("\n").forEach(row => {
+          const clean = row.trim();
+          lines.push(clean ? pad() + clean : "");
+        });
+        return;
+      }
+
+      if (type === "self" || type === "open" || type === "close") {
+        const name = token.name;
+        const value = token.value.replace(/\s+/g, " ").replace(/\s+>/, ">").trim();
+
+        if (INLINE_TAGS.has(name)) { inline += value; pending.push(token); return; }
+
+        flushInline();
+
+        if (type === "close") {
+          let found = -1;
+          for (let k = stack.length - 1; k >= 0; k--) {
+            if (stack[k].type === "tag" && stack[k].name === name) { found = k; break; }
+            if (stack[k].type === "cond") break; /* never close across a conditional */
+          }
+
+          if (found === -1) {
+            markParentBlock();
+            token.outLine = pushLine(value) + 1;
+
+            /* Ghost-table markup closes tags opened in an earlier
+               conditional block, which is normal and not an error. */
+            const insideConditional = stack.some(frame => frame.type === "cond");
+
+            if (!insideConditional) {
+              addIssue("structure", "warn", "Closing tag " + value + " has no matching opening tag", "", false);
+            }
+            return;
+          }
+
+          for (let k = stack.length - 1; k > found; k--) {
+            addIssue("structure", "warn", "Tag <" + stack[k].name + "> was never closed", "", false);
+          }
+
+          const frame = stack[found];
+          stack.length = found;
+          level = frame.level;
+
+          if (frame.lineIndex === lines.length - 1 && !frame.blockChild) {
+            lines[frame.lineIndex] += value;
+            token.outLine = frame.lineIndex + 1;
+          } else {
+            token.outLine = pushLine(value) + 1;
+          }
+
+          markParentBlock();
+          return;
+        }
+
+        markParentBlock();
+        const lineIndex = pushLine(value);
+        token.outLine = lineIndex + 1;
+
+        if (type === "open") {
+          stack.push({ type: "tag", name: name, level: level, lineIndex: lineIndex, blockChild: false });
+          level++;
+        }
+      }
+    });
+
+    flushInline();
+
+    return lines.join("\n").replace(/[ \t]+$/gm, "");
+  }
+
+  return {
+    process: process,
+    tokenize: tokenize,
+    parseTag: parseTag,
+    parseCss: parseCss
+  };
+});
+
 (() => {
   "use strict";
 
